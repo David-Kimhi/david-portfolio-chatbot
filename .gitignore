@@ -1,0 +1,15 @@
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Streamlit
+.streamlit/
+
+# Local data
+data/*
+!data/.gitkeep
+
+# Env
+.env
