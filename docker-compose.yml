@@ -4,6 +4,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     ports: ["8000:8000"]
+    volumes:
+      - ./chroma_data:/data/chroma_store
   app:
     build:
       context: ./frontend

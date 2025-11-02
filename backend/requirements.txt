@@ -3,3 +3,5 @@ uvicorn[standard]
 chromadb
 sentence-transformers
 pydantic
+authlib
+openai

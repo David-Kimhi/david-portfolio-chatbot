@@ -1,2 +1,10 @@
 streamlit
 requests
+fastapi
+uvicorn[standard]
+chromadb
+sentence-transformers
+pydantic
+authlib
+openai
+python-jose[cryptography]
