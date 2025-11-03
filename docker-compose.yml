@@ -1,16 +1,41 @@
+version: "3.9"
+
 services:
-  api:
+  portfoliochat-api:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
-    ports: ["8000:8000"]
-    volumes:
-      - ./chroma_data:/data/chroma_store
-  app:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file:
+      - .env
+    container_name: portfoliochat-api
+    restart: unless-stopped
     environment:
-      - API_URL=http://api:8000
-    ports: ["8501:8501"]
-    depends_on: [api]
+      PYTHONPATH: /app
+    expose:
+      - "8000"          # visible to other containers (Caddy), not to the world
+    networks:
+      - web
+
+  portfoliochat-frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    env_file:
+      - .env
+    container_name: portfoliochat-frontend
+    restart: unless-stopped
+    environment:
+      PYTHONPATH: /app
+      STREAMLIT_SERVER_HEADLESS: "true"
+      STREAMLIT_SERVER_ENABLE_CORS: "false"
+      STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION: "false"
+    expose:
+      - "3000"          # Caddy will reverse_proxy to this
+    depends_on:
+      - portfoliochat-api
+    networks:
+      - web
+
+networks:
+  web:
+    external: true      # must match the network your Caddy container is on

@@ -107,8 +107,6 @@ if "chat" not in st.session_state:
     # list of dicts: {"role": "user"|"assistant", "content": "...", "sources": [...]}
     st.session_state.chat = []
 
-API_URL = os.environ.get("API_URL", "http://localhost:8000")
-
 with st.sidebar:
     st.divider()
     st.subheader(CONSTANTS['admin_settings'][language])
