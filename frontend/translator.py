@@ -90,5 +90,9 @@ CONSTANTS = {
     "preset_questions_title": {
         "he": "שאלות לדוגמה",
         "en": "Example Questions"
+    },
+    "translate_button": {
+        "en": "🔁 Translate to Hebrew",
+        "he": "🔁 תרגם לאנגלית",
     }
 }
