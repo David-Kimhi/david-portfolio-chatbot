@@ -12,7 +12,7 @@ ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD") or ""
 JWT_SECRET = os.getenv("JWT_SECRET") or "change_me"
 JWT_ISS = os.getenv("JWT_ISS", "portfolio-chat")
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 # ----- MODELS -----
 class LoginReq(BaseModel):

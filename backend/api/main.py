@@ -8,7 +8,7 @@ from sentence_transformers import SentenceTransformer
 from openai import OpenAI
 from backend.utils.constants import MODEL, TOP_K, MIN_SIM
 
-from backend.routes.auth import require_jwt, router as auth_router
+from backend.api.auth import require_jwt, router as auth_router
 from starlette.middleware.sessions import SessionMiddleware
 import os
 import chromadb
@@ -56,12 +56,12 @@ class IngestItem(BaseModel):
     meta: Dict[str, str] = {}
 
 
-@app.get("/health")
+@app.get("/api/health")
 def health(): 
     return {"ok": True}
 
 
-@app.post("/ingest")
+@app.post("/api/ingest")
 def ingest(items: List[IngestItem], user=Depends(require_jwt)):
     texts = [it.text for it in items]
     metas = [it.meta for it in items]
@@ -123,7 +123,7 @@ def llm_complete(prompt: str, system: Optional[str] = None, max_tokens: int = 60
         )
         return r.choices[0].message.content.strip()
 
-@app.post("/ask/stream")
+@app.post("/api/ask/stream")
 def ask_stream(req: AskReq):
     # 1) embed + retrieve exactly like /ask
     qvec = embed.encode([req.question], normalize_embeddings=True).tolist()
@@ -199,7 +199,7 @@ def ask_stream(req: AskReq):
 
     return StreamingResponse(stream_llm(), media_type="text/event-stream")
 
-@app.post("/ask")
+@app.post("/api/ask")
 def ask(req: AskReq):
     qvec = embed.encode([req.question], normalize_embeddings=True).tolist()
 

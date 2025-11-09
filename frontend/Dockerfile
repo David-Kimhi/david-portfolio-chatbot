@@ -9,8 +9,6 @@ WORKDIR /app
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
 
-# Same requirements file as backend (simpler).
-# It should include streamlit + whatever else you need.
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 

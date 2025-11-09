@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   portfoliochat-api:
     build:
@@ -38,4 +36,4 @@ services:
 
 networks:
   web:
-    external: true      # must match the network your Caddy container is on
+    external: true
