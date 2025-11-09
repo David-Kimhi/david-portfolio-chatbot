@@ -9,6 +9,7 @@ from presets import PRESET_QUESTIONS
 API_URL = os.environ.get("API_URL","http://localhost:8000")
 AUTH_URL = f"{API_URL}/auth/login"
 
+
 if "lang" not in st.session_state:
     st.session_state.lang = "en"  
 
@@ -103,6 +104,8 @@ if language == 'he':
     """, unsafe_allow_html=True)
 
 
+
+
 if "chat" not in st.session_state:
     # list of dicts: {"role": "user"|"assistant", "content": "...", "sources": [...]}
     st.session_state.chat = []
@@ -150,17 +153,40 @@ with st.sidebar:
             st.rerun()
 
 
+def stream_translate_from_backend(text: str, target_lang: str):
+    """
+    Call /trunslate/stream and yield events, just like /ask/stream.
+    Each event is a dict with "type": "chunk" | "sources".
+    """
+    headers = {}
+    if "auth_token" in st.session_state:
+        headers["Authorization"] = f"Bearer {st.session_state['auth_token']}"
+
+    with requests.post(
+        f"{API_URL}/trunslate/stream",
+        json={"text": text, "target_lang": target_lang},
+        headers=headers,
+        stream=True,
+    ) as r:
+        r.raise_for_status()
+        for line in r.iter_lines():
+            if not line:
+                continue
+            yield json.loads(line.decode("utf-8"))
+
+
+
 @st.fragment
 def render_history():
-    for msg in st.session_state.chat:
+    for idx, msg in enumerate(st.session_state.chat):
         if msg["role"] == "user":
             st.chat_message("user", avatar="./frontend/assets/user.png").markdown(msg["content"])
         else:
-           with st.chat_message("assistant", avatar="./frontend/assets/assistant.jpg"):
+            with st.chat_message("assistant", avatar="./frontend/assets/assistant.jpg"):
                 inner = st.empty()
-                direction_class = set_text_direction(msg["content"])
-                inner.markdown(f"<div class='{direction_class}'>{msg['content']}</div>", unsafe_allow_html=True)
+                inner.markdown(msg['content'])
 
+                # Sources expander (same as before)
                 if msg.get("sources"):
                     with st.expander(CONSTANTS["sources"][language]):
                         for s in msg["sources"]:
@@ -168,6 +194,27 @@ def render_history():
                                 st.write(f"- [{s.get('title','Source')}]({s['url']})")
                             else:
                                 st.write(f"- {s.get('title','Source')}")
+
+                # 🔁 Translate button
+                target_lang = "en" if language == "he" else "he"
+                translate_label = CONSTANTS["translate_button"][language]
+
+                if st.button(translate_label, key=f"translate_{idx}", use_container_width=False):
+                    # Stream translation into THIS message, chunk by chunk
+                    full = ""
+                    box = inner  # reuse the same placeholder
+
+                    for event in stream_translate_from_backend(msg["content"], target_lang):
+                        if event.get("type") == "chunk":
+                            full += event.get("data", "")
+                            box.markdown(full)
+
+                    # Save translated text into history
+                    st.session_state.chat[idx]["content"] = full
+
+                    # Rerun so everything is consistent
+                    st.rerun()
+
 
 
 st.title(CONSTANTS['ask_title'][language])
@@ -179,7 +226,7 @@ for q in PRESET_QUESTIONS[language]:
         st.session_state["user_query"] = q
         st.rerun()
 
-render_history()
+
 
 
 def stream_answer_from_backend(question: str):
@@ -227,6 +274,8 @@ if q:
     # 1) add user to history immediately
     st.session_state.chat.append({"role": "user", "content": q})
 
+    render_history()
+
     # 2) stream assistant (this does NOT re-render the whole page)
     result = stream_live_assistant(q)
 
@@ -244,6 +293,7 @@ if q:
 
     # 5) one small rerun so the assistant message moves
     st.rerun()
-
+else:
+    render_history()
 
 
