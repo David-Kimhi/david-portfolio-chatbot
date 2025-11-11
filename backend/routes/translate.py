@@ -10,7 +10,7 @@ from backend.utils.settings import openai_client
 from backend.utils.constants import MODEL, HEB_RANGE
 from backend.utils.responses import stream_llm
 
-router = APIRouter(prefix="/trunslate", tags=["trunslate"])
+router = APIRouter(prefix="/api/trunslate", tags=["trunslate"])
 
 
 def is_hebrew_text(text: str) -> bool:

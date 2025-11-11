@@ -13,6 +13,9 @@ services:
       - "8000"          # visible to other containers (Caddy), not to the world
     networks:
       - web
+    volumes:
+      - chroma_data:/app/data/chroma_store
+
 
   portfoliochat-frontend:
     build:
@@ -37,3 +40,6 @@ services:
 networks:
   web:
     external: true
+
+volumes:
+  chroma_data:

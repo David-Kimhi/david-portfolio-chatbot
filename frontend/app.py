@@ -4,6 +4,7 @@ from translator import CONSTANTS
 import icons
 import json
 from presets import PRESET_QUESTIONS
+from utils import detect_language
 
 
 API_URL = os.environ.get("API_URL","http://localhost:8000")
@@ -162,17 +163,24 @@ def stream_translate_from_backend(text: str, target_lang: str):
     if "auth_token" in st.session_state:
         headers["Authorization"] = f"Bearer {st.session_state['auth_token']}"
 
-    with requests.post(
-        f"{API_URL}/trunslate/stream",
-        json={"text": text, "target_lang": target_lang},
-        headers=headers,
-        stream=True,
-    ) as r:
-        r.raise_for_status()
-        for line in r.iter_lines():
-            if not line:
-                continue
-            yield json.loads(line.decode("utf-8"))
+    try:
+        with requests.post(
+            f"{API_URL}/trunslate/stream",
+            json={"text": text, "target_lang": target_lang},
+            headers=headers,
+            stream=True,
+            timeout=(5, 60)
+        ) as r:
+            r.raise_for_status()
+            for line in r.iter_lines():
+                if not line:
+                    continue
+                yield json.loads(line.decode("utf-8"))
+                
+    except requests.exceptions.Timeout:
+        yield {"type": "error", "data": "⏰ Translation request timed out. Try again."}
+    except requests.exceptions.RequestException as e:
+        yield {"type": "error", "data": f"Translation failed: {e}"}
 
 
 
@@ -196,37 +204,58 @@ def render_history():
                                 st.write(f"- {s.get('title','Source')}")
 
                 # 🔁 Translate button
-                target_lang = "en" if language == "he" else "he"
+                msg_language = detect_language(msg["content"])
+                disabled_rule = msg_language == language
                 translate_label = CONSTANTS["translate_button"][language]
 
-                if st.button(translate_label, key=f"translate_{idx}", use_container_width=False):
-                    # Stream translation into THIS message, chunk by chunk
+                if st.button(translate_label, key=f"translate_{idx}", use_container_width=False, disabled=disabled_rule):
                     full = ""
-                    box = inner  # reuse the same placeholder
+                    box = inner
+                    error_message = None
 
-                    for event in stream_translate_from_backend(msg["content"], target_lang):
-                        if event.get("type") == "chunk":
+                    for event in stream_translate_from_backend(msg["content"], language):
+                        etype = event.get("type")
+                        if etype == "chunk":
                             full += event.get("data", "")
                             box.markdown(full)
+                        elif etype == "error":
+                            error_message = event["data"]
+                            break  # stop reading more lines
 
-                    # Save translated text into history
-                    st.session_state.chat[idx]["content"] = full
+                    if error_message:
+                        box.markdown(f"**{error_message}**")
+                        # add a quick retry button
+                        if st.button("🔁 Try again", key=f"retry_{idx}", use_container_width=False):
+                            st.rerun()
+                    else:
+                        st.session_state.chat[idx]["content"] = full
+                        st.rerun()
 
-                    # Rerun so everything is consistent
-                    st.rerun()
 
-
+st.markdown("""
+    <style>
+    div[data-testid="stButton"] button {
+        border-radius: 12px;
+        height: 40px;
+        font-weight: 600;
+        white-space: normal;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 st.title(CONSTANTS['ask_title'][language])
+st.markdown(f"##### 💬 {CONSTANTS['preset_questions_title'][language]}")
 
-st.markdown(f"#### 💬 {CONSTANTS['preset_questions_title'][language]}")
+questions = PRESET_QUESTIONS[language]
 
-for q in PRESET_QUESTIONS[language]:
-    if st.button(f"👉 {q}", use_container_width=True):
-        st.session_state["user_query"] = q
-        st.rerun()
+n_cols = 2
+cols = st.columns(n_cols)
 
-
+for i, q in enumerate(questions):
+    with cols[i % n_cols]:
+        if st.button(q, use_container_width=True):
+            st.session_state["user_query"] = q
+            st.rerun()
 
 
 def stream_answer_from_backend(question: str):
@@ -238,6 +267,7 @@ def stream_answer_from_backend(question: str):
         json={"question": question, "top_k": 4},
         headers=headers,
         stream=True,
+        timeout=(5, 60)
     ) as r:
         r.raise_for_status()
         for line in r.iter_lines():
@@ -253,14 +283,23 @@ def stream_live_assistant(question: str):
         full = ""
         sources = []
 
+        error_message = None
         for event in stream_answer_from_backend(question):
             if event["type"] == "chunk":
                 full += event["data"]
                 box.markdown(full)
             elif event["type"] == "sources":
                 sources = event["data"]
+            elif etype == "error":
+                error_message = event["data"]
+                break  # stop reading more lines
+        
+        if error_message:
+            box.markdown(f"**{error_message}**")
+            # add a quick retry button
+            if st.button("🔁 Try again", key=f"retry_{idx}", use_container_width=False):
+                st.rerun()
 
-        # IMPORTANT: don't render expander here
         return {"answer": full, "sources": sources}
 
 
@@ -271,15 +310,18 @@ if "chat" not in st.session_state:
 q = st.chat_input(CONSTANTS['chat_placeholder'][language]) or st.session_state.get("user_query")
 
 if q:
-    # 1) add user to history immediately
+    # 1) clear preset trigger if used
+    st.session_state.pop("user_query", None)
+    
+    # 2) add user to history immediately
     st.session_state.chat.append({"role": "user", "content": q})
 
     render_history()
 
-    # 2) stream assistant (this does NOT re-render the whole page)
+    # 3) stream assistant (this does NOT re-render the whole page)
     result = stream_live_assistant(q)
 
-    # 3) now that we have final text → add to history
+    # 4) add to history
     st.session_state.chat.append(
         {
             "role": "assistant",
@@ -288,8 +330,7 @@ if q:
         }
     )
 
-    # 4) clear preset trigger if used
-    st.session_state.pop("user_query", None)
+
 
     # 5) one small rerun so the assistant message moves
     st.rerun()

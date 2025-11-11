@@ -75,7 +75,7 @@ def ingest(items: List[IngestItem], user=Depends(require_jwt)):
             # original English – no need to translate
             embed_text = original_text
             unified = original_text
-            meta["translated_to"] = None
+            meta["translated_to"] = "None"
 
         meta["source_lang"] = source_lang
 
@@ -116,7 +116,7 @@ def _prompt_fallback(question: str) -> str:
         "Answer:"
     )
 
-@app.post("/ask/stream")
+@app.post("/api/ask/stream")
 def ask_stream(req: AskReq):
     # 1) embed + retrieve exactly like /ask
     qvec = embed.encode([req.question], normalize_embeddings=True).tolist()

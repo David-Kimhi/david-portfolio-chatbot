@@ -1,7 +1,7 @@
 CONSTANTS = {
     "app_title": {
-        "en": "Portfolio Chatbot",
-        "he": "צ׳אטבוט תיק עבודות"
+        "en": "Professional Chatbot - David Kimhi",
+        "he": "צ׳אטבוט מקצועי - דוד קמחי"
     },
     "admin_settings": {
         "en": "Admin Settings",
@@ -72,8 +72,8 @@ CONSTANTS = {
         "he": "שאל כל שאלה"
     },
     "chat_placeholder": {
-        "en": "Ask about experience, projects, stack…",
-        "he": "שאל על הניסיון, הפרויקטים או הטכנולוגיות…"
+        "en": "Ask about David's professional experience...",
+        "he": "שאל על הניסיון המקצועי של דוד..."
     },
     "sources": {
         "en": "Sources",
@@ -88,11 +88,11 @@ CONSTANTS = {
         "he": "ללא"
     },
     "preset_questions_title": {
-        "he": "שאלות לדוגמה",
-        "en": "Example Questions"
+        "he": "שאלות לדוגמה:",
+        "en": "Example Questions:"
     },
     "translate_button": {
-        "en": "🔁 Translate to Hebrew",
-        "he": "🔁 תרגם לאנגלית",
+        "en": "🔁 Translate to English",
+        "he": "🔁 תרגם לעברית",
     }
 }

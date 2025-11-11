@@ -39,6 +39,7 @@ def stream_llm(
             ],
             stream=True,
             max_output_tokens=max_tokens,
+            timeout=30
         )
         for event in resp:
             delta = event.output_text_delta
@@ -61,6 +62,8 @@ def stream_llm(
             stream=True,
             temperature=temperature,
             max_tokens=max_tokens,
+            timeout=30
+
         )
         for chunk in cmpl:
             delta = chunk.choices[0].delta.content or ""

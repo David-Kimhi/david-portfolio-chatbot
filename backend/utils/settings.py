@@ -5,7 +5,7 @@ import chromadb
 openai_client = OpenAI()
 
 
-PERSIST_DIR = os.getenv("CHROMA_DIR", "./data/chroma_store")
+PERSIST_DIR = os.getenv("CHROMA_DIR", "/app/data/chroma_store")
 os.makedirs(PERSIST_DIR, exist_ok=True)
 
 chroma = chromadb.PersistentClient(path=PERSIST_DIR)
