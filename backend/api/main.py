@@ -43,12 +43,12 @@ class IngestItem(BaseModel):
 
 
 @app.get("/api/health")
-def health(): 
+async def health(): 
     return {"ok": True}
 
 
 @app.post("/api/ingest")
-def ingest(items: List[IngestItem], user=Depends(require_jwt)):
+async def ingest(items: List[IngestItem], user=Depends(require_jwt)):
     texts_for_store = []
     metas = []
     ids   = []
@@ -117,7 +117,7 @@ def _prompt_fallback(question: str) -> str:
     )
 
 @app.post("/api/ask/stream")
-def ask_stream(req: AskReq):
+async def ask_stream(req: AskReq):
     # 1) embed + retrieve exactly like /ask
     qvec = embed.encode([req.question], normalize_embeddings=True).tolist()
     res = coll.query(

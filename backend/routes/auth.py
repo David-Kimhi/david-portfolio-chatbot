@@ -26,7 +26,7 @@ class IngestItem(BaseModel):
 
 # ----- AUTH -----
 @router.post("/login")
-def login(req: LoginReq):
+async def login(req: LoginReq):
     # single-user auth
     if req.email.strip().lower() != ADMIN_EMAIL.lower() or req.password != ADMIN_PASSWORD:
         raise HTTPException(status_code=401, detail="Invalid email or password")

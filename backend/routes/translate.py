@@ -69,7 +69,7 @@ def translate_text(text: str, target_lang: str) -> str:
 # ---------- ROUTES ----------
 
 @router.post("/")
-def translate_route(req: TranslateReq) -> str:
+async def translate_route(req: TranslateReq) -> str:
     """
     Non-streaming HTTP endpoint.
     Returns translated text as plain string.
@@ -78,7 +78,7 @@ def translate_route(req: TranslateReq) -> str:
 
 
 @router.post("/stream")
-def translate_stream_route(req: TranslateReq):
+async def translate_stream_route(req: TranslateReq):
     """
     Streaming HTTP endpoint (SSE) for translation.
     Same SSE JSON format as /ask/stream:
