@@ -61,7 +61,7 @@ def stream_llm(
             ],
             stream=True,
             temperature=temperature,
-            max_tokens=max_tokens,
+            max_completion_tokens=max_tokens,
             timeout=30
 
         )
