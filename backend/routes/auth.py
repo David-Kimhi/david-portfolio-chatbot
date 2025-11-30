@@ -44,7 +44,7 @@ async def login(req: LoginReq):
     )
     return {"access_token": token, "token_type": "bearer"}
 
-def require_jwt(authorization: str = Header(None)):
+async def require_jwt(authorization: str = Header(None)):
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(401, "Missing token")
     token = authorization.split(" ", 1)[1]

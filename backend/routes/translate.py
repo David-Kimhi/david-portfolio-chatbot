@@ -45,7 +45,7 @@ def _build_prompt(text: str, target_lang: str) -> str:
 
 # ---------- INTERNAL HELPER (non-streaming) ----------
 
-def translate_text(text: str, target_lang: str) -> str:
+async def translate_text(text: str, target_lang: str) -> str:
     """
     Internal helper – non-streaming translation.
     target_lang: 'he' or 'en'
@@ -55,7 +55,7 @@ def translate_text(text: str, target_lang: str) -> str:
 
     prompt = _build_prompt(text, target_lang)
 
-    resp = openai_client.responses.create(
+    resp = await openai_client.responses.create(
         model=MODEL,
         input=[
             {"role": "system", "content": TRANSLATE_SYSTEM_PROMPT},
@@ -74,7 +74,7 @@ async def translate_route(req: TranslateReq) -> str:
     Non-streaming HTTP endpoint.
     Returns translated text as plain string.
     """
-    return translate_text(req.text, req.target_lang.value)
+    return await translate_text(req.text, req.target_lang.value)
 
 
 @router.post("/stream")
