@@ -63,7 +63,7 @@ async def ingest(items: List[IngestItem], user=Depends(require_jwt)):
 
         if source_is_he:
             # translate Hebrew → English
-            translated_en = translate_text(original_text, "en")
+            translated_en = await translate_text(original_text, "en")
             embed_text = translated_en
 
             unified = (
