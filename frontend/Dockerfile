@@ -16,4 +16,4 @@ COPY frontend ./frontend
 
 EXPOSE 3000
 
-CMD ["streamlit", "run", "frontend/app.py", "--server.port=3000", "--server.address=0.0.0.0"]
+CMD ["streamlit", "run", "frontend/pages/app.py", "--server.port=3000", "--server.address=0.0.0.0"]
