@@ -28,6 +28,7 @@
             "env": {
               "PYTHONPATH": "${workspaceFolder}"
             },
+            "envFile": "${workspaceFolder}/.env",
             "console": "integratedTerminal"
 
         },
@@ -38,12 +39,13 @@
             "module": "streamlit",
             "args": [
               "run",
-              "frontend/app.py"],
+              "frontend/pages/app.py"],
             "jinja": true,
             "cwd": "${workspaceFolder}",
             "env": {
               "PYTHONPATH": "${workspaceFolder}"
             },
+            "envFile": "${workspaceFolder}/.env",
             "console": "integratedTerminal"
 
         }

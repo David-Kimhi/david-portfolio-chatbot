@@ -1,3 +1,6 @@
+from frontend.st_helpers.session_state import SessionStateManager 
+
+S = SessionStateManager()
 CONSTANTS = {
     "app_title": {
         "en": "Professional Chatbot - David Kimhi",
@@ -10,6 +13,10 @@ CONSTANTS = {
     "login_prompt": {
         "en": "Login to upload RAG docs",
         "he": "התחבר כדי להעלות מסמכי RAG"
+    },
+    "login_title": {
+        "en": "Login...",
+        "he": "התחברות..."
     },
     "email": {
         "en": "Email",
@@ -94,5 +101,14 @@ CONSTANTS = {
     "translate_button": {
         "en": "🔁 Translate to English",
         "he": "🔁 תרגם לעברית",
+    },
+    "thinking": {
+        "en": "🤔 Thinking...",
+        "he": "🤔 חושב...",
     }
 }
+
+
+def get_text_value(key: str) -> str:
+    lang = S.get(S.LANG, "en")
+    return CONSTANTS.get(key, {}).get(lang)

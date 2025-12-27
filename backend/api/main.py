@@ -3,6 +3,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Dict, Optional
 from sentence_transformers import SentenceTransformer
+import asyncio
 from backend.utils.settings import openai_client, coll
 from backend.utils.constants import TOP_K, MIN_SIM
 from backend.routes.auth import require_jwt, router as auth_router
@@ -19,7 +20,15 @@ from backend.routes.translate import is_hebrew_text, translate_text
 
 
 app = FastAPI(title="PortfolioChat API")
-embed = SentenceTransformer("all-MiniLM-L6-v2")
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Lazily create heavy resources on startup in a thread so the
+    event loop isn't blocked during import-time model initialization.
+    """
+    # create embedder in a thread
+    app.state.embed = await asyncio.to_thread(SentenceTransformer, "all-MiniLM-L6-v2")
 
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("JWT_SECRET","change_me"))
 app.include_router(auth_router)
@@ -84,7 +93,9 @@ async def ingest(items: List[IngestItem], user=Depends(require_jwt)):
         metas.append(meta)
         ids.append(it.id)
 
-    embs = embed.encode(texts_for_embed, normalize_embeddings=True).tolist()
+    # embed.encode is blocking — run in thread to avoid blocking the event loop
+    embs_arr = await asyncio.to_thread(lambda: app.state.embed.encode(texts_for_embed, normalize_embeddings=True))
+    embs = embs_arr.tolist()
     coll.add(documents=texts_for_store, embeddings=embs, metadatas=metas, ids=ids)
 
 
@@ -119,7 +130,9 @@ def _prompt_fallback(question: str) -> str:
 @app.post("/api/ask/stream")
 async def ask_stream(req: AskReq):
     # 1) embed + retrieve exactly like /ask
-    qvec = embed.encode([req.question], normalize_embeddings=True).tolist()
+    # embed.encode is blocking — run in thread to avoid blocking the event loop
+    qvec_arr = await asyncio.to_thread(lambda: app.state.embed.encode([req.question], normalize_embeddings=True))
+    qvec = qvec_arr.tolist()
     res = coll.query(
         query_embeddings=qvec,
         n_results=req.top_k or TOP_K,
