@@ -1,9 +1,8 @@
-from openai import OpenAI
+from openai import AsyncOpenAI
 import os
 import chromadb
 
-openai_client = OpenAI()
-
+async_openai_client = AsyncOpenAI()
 # Persistent Chroma directory: prefer CHROMA_DIR, fall back to a repo-local
 # data directory, and finally /tmp if creation fails (e.g. read-only /app).
 DEFAULT_PERSIST = os.getenv("CHROMA_DIR", "./data/chroma_store")

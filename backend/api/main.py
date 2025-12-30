@@ -1,10 +1,10 @@
 from fastapi import FastAPI, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import List, Dict, Optional
+from typing import Any, List, Dict, Optional
 from sentence_transformers import SentenceTransformer
 import asyncio
-from backend.utils.settings import openai_client, coll
+from backend.utils.settings import coll
 from backend.utils.constants import TOP_K, MIN_SIM
 from backend.routes.auth import require_jwt, router as auth_router
 from backend.utils.responses import stream_llm
@@ -14,8 +14,6 @@ from backend.routes.translate import router as translate_router
 from starlette.middleware.sessions import SessionMiddleware
 
 import os
-import json
-import time
 from backend.routes.translate import is_hebrew_text, translate_text
 
 
@@ -129,10 +127,11 @@ def _prompt_fallback(question: str) -> str:
 
 @app.post("/api/ask/stream")
 async def ask_stream(req: AskReq):
-    # 1) embed + retrieve exactly like /ask
-    # embed.encode is blocking — run in thread to avoid blocking the event loop
+    # run embedding in thread to avoid blocking the event loop
     qvec_arr = await asyncio.to_thread(lambda: app.state.embed.encode([req.question], normalize_embeddings=True))
     qvec = qvec_arr.tolist()
+
+    # retrieve top-k similar documents
     res = coll.query(
         query_embeddings=qvec,
         n_results=req.top_k or TOP_K,
@@ -159,5 +158,5 @@ async def ask_stream(req: AskReq):
 
     return StreamingResponse(
         stream_llm(user_prompt, ctx_sources),
-        media_type="text/event-stream",
+        media_type="application/x-ndjson",
     )

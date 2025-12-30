@@ -2,12 +2,13 @@
 import json
 import time
 from typing import List, Optional, Any
+import asyncio
 
-from backend.utils.settings import openai_client
+from backend.utils.settings import async_openai_client  
 from backend.utils.constants import MODEL, SECURE_SYSTEM_PROMPT
 
 
-def stream_llm(
+async def stream_llm(
     user_prompt: str,
     ctx_sources: Optional[List[Any]] = None,
     *,
@@ -31,7 +32,7 @@ def stream_llm(
 
     try:
         # OpenAI responses API – streaming
-        resp = openai_client.responses.create(
+        resp = await async_openai_client.responses.create(
             model=MODEL,
             input=[
                 {"role": "system", "content": system_instr},
@@ -41,11 +42,11 @@ def stream_llm(
             max_output_tokens=max_tokens,
             timeout=30
         )
-        for event in resp:
+        async for event in resp:
             delta = event.output_text_delta
             if delta:
                 if throttle_sec:
-                    time.sleep(throttle_sec)
+                    await asyncio.sleep(throttle_sec)
                 yield json.dumps(
                     {"type": "chunk", "data": delta},
                     ensure_ascii=False,
@@ -53,7 +54,7 @@ def stream_llm(
 
     except Exception:
         # fallback to chat.completions streaming
-        cmpl = openai_client.chat.completions.create(
+        cmpl = await async_openai_client.chat.completions.create(
             model=MODEL,
             messages=[
                 {"role": "system", "content": system_instr},
@@ -65,7 +66,7 @@ def stream_llm(
             timeout=30
 
         )
-        for chunk in cmpl:
+        async for chunk in cmpl:
             delta = chunk.choices[0].delta.content or ""
             if delta:
                 yield json.dumps(

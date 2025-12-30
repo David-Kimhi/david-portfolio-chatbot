@@ -6,7 +6,7 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from backend.utils.settings import openai_client
+from backend.utils.settings import async_openai_client
 from backend.utils.constants import MODEL, HEB_RANGE
 from backend.utils.responses import stream_llm
 
@@ -55,7 +55,7 @@ async def translate_text(text: str, target_lang: str) -> str:
 
     prompt = _build_prompt(text, target_lang)
 
-    resp = await openai_client.responses.create(
+    resp = await async_openai_client.responses.create(
         model=MODEL,
         input=[
             {"role": "system", "content": TRANSLATE_SYSTEM_PROMPT},
@@ -89,9 +89,6 @@ async def translate_stream_route(req: TranslateReq):
     text = req.text or ""
     if not text.strip():
         # Fast no-op: just emit empty sources
-        def _empty():
-            yield json.dumps({"type": "sources", "data": []}, ensure_ascii=False) + "\n"
-
         return StreamingResponse(_empty(), media_type="text/event-stream")
 
     user_prompt = _build_prompt(text, req.target_lang.value)
@@ -103,5 +100,9 @@ async def translate_stream_route(req: TranslateReq):
             system_prompt=TRANSLATE_SYSTEM_PROMPT,
             temperature=0.0,
         ),
-        media_type="text/event-stream",
+        media_type="application/x-ndjson",
     )
+
+
+async def _empty():
+    yield f"data: {json.dumps({'type':'sources','data': []}, ensure_ascii=False)}\n\n"

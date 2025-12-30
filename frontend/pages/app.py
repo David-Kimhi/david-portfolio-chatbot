@@ -173,10 +173,10 @@ def stream_translate_from_backend(text: str, target_lang: str):
             timeout=(5, 60)
         ) as r:
             r.raise_for_status()
-            for line in r.iter_lines():
+            for line in r.iter_lines(decode_unicode=True):
                 if not line:
                     continue
-                yield json.loads(line.decode("utf-8"))
+                yield json.loads(line)
                 
     except requests.exceptions.Timeout:
         yield {"type": "error", "data": "⏰ Translation request timed out. Try again."}
@@ -276,10 +276,10 @@ def stream_answer_from_backend(question: str):
         timeout=(5, 60)
     ) as r:
         r.raise_for_status()
-        for line in r.iter_lines():
+        for line in r.iter_lines(decode_unicode=True):
             if not line:
                 continue
-            yield json.loads(line.decode("utf-8"))
+            yield json.loads(line)
 
 
 @st.fragment
