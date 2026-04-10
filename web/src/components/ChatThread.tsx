@@ -114,9 +114,10 @@ export function ChatThread({
                           const title =
                             (s.title as string) || "Source";
                           const url = s.url as string | undefined;
+                          const hasUrl = !!url?.trim();
                           return (
                             <li key={i}>
-                              {url ? (
+                              {hasUrl ? (
                                 <a href={url} target="_blank" rel="noreferrer">
                                   {title}
                                 </a>

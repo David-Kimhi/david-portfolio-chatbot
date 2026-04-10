@@ -130,6 +130,50 @@ export async function loginRequest(
   return data.access_token;
 }
 
+// Shape of a document returned by GET /api/docs
+export type DocItem = {
+  id: string;
+  document: string;
+  meta: Record<string, string>;
+};
+
+// GET /api/docs → returns all stored documents (requires JWT)
+export async function listDocs(token: string): Promise<DocItem[]> {
+  const res = await fetch(apiUrl("/api/docs"), {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(`List docs failed: ${res.status}`);
+  const data = (await res.json()) as { docs: DocItem[] };
+  return data.docs;
+}
+
+// DELETE /api/docs/{id} → removes a document from ChromaDB (requires JWT)
+export async function deleteDoc(id: string, token: string): Promise<void> {
+  const res = await fetch(apiUrl(`/api/docs/${encodeURIComponent(id)}`), {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+}
+
+// PUT /api/docs/{id} → re-embeds and updates a document (requires JWT)
+export async function updateDoc(
+  id: string,
+  text: string,
+  meta: Record<string, string>,
+  token: string,
+): Promise<void> {
+  const res = await fetch(apiUrl(`/api/docs/${encodeURIComponent(id)}`), {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ text, meta }),
+  });
+  if (!res.ok) throw new Error(`Update failed: ${res.status}`);
+}
+
 // POST /api/ingest → sends documents to be embedded and stored in ChromaDB (requires JWT)
 export async function ingestRequest(
   items: { id: string; text: string; meta: Record<string, string> }[],

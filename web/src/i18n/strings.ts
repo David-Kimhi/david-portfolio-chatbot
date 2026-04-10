@@ -139,6 +139,50 @@ const STRINGS: Record<string, Record<Lang, string>> = {
     en: "Translation timed out. Try again.",
     he: "פג הזמן לתרגום. נסה שוב.",
   },
+  documents: {
+    en: "Documents",
+    he: "מסמכים",
+  },
+  no_documents: {
+    en: "No documents yet.",
+    he: "אין מסמכים עדיין.",
+  },
+  delete: {
+    en: "Delete",
+    he: "מחק",
+  },
+  delete_confirm: {
+    en: "Delete this document?",
+    he: "למחוק מסמך זה?",
+  },
+  delete_failed: {
+    en: "Delete failed.",
+    he: "המחיקה נכשלה.",
+  },
+  deleted: {
+    en: "Deleted.",
+    he: "נמחק.",
+  },
+  edit: {
+    en: "Edit",
+    he: "ערוך",
+  },
+  save: {
+    en: "Save",
+    he: "שמור",
+  },
+  cancel: {
+    en: "Cancel",
+    he: "ביטול",
+  },
+  updated: {
+    en: "Updated.",
+    he: "עודכן.",
+  },
+  update_failed: {
+    en: "Update failed.",
+    he: "העדכון נכשל.",
+  },
 };
 
 // Looks up a string by key + language. Falls back to the key itself if missing.

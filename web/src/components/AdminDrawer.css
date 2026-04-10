@@ -207,3 +207,75 @@
   font: inherit;
   cursor: pointer;
 }
+
+/* ── Documents list ── */
+.admin-drawer__doc-list {
+  list-style: none;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.admin-drawer__doc-item {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.admin-drawer__doc-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  background: var(--surface);
+}
+
+.admin-drawer__doc-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-drawer__doc-actions {
+  display: flex;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+.admin-drawer__doc-btn {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.admin-drawer__doc-btn:hover {
+  background: var(--surface-muted);
+}
+
+.admin-drawer__doc-btn--danger {
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+
+.admin-drawer__doc-btn--danger:hover {
+  background: #fef2f2;
+}
+
+/* Inline edit form inside an expanded doc row */
+.admin-drawer__doc-edit {
+  padding: 0.6rem;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+}

@@ -84,6 +84,11 @@ class IngestItem(BaseModel):
     meta: Dict[str, str] = {}
 
 
+class UpdateItem(BaseModel):
+    text: str
+    meta: Dict[str, str] = {}
+
+
 @app.get("/api/health")
 async def health(): 
     return {"ok": True}
@@ -139,7 +144,68 @@ async def ingest(items: List[IngestItem], user=Depends(require_jwt)):
     return {"ok": True, "count": len(items), "by": user["sub"]}
 
 
-# 🧱 2) wrap sources so model knows these are data
+@app.get("/api/docs")
+async def list_docs(user=Depends(require_jwt)):
+    """Return all stored documents with their ids and metadata."""
+    result = coll.get(include=["documents", "metadatas"])
+    docs = [
+        {"id": doc_id, "document": document, "meta": meta}
+        for doc_id, document, meta in zip(
+            result["ids"], result["documents"], result["metadatas"]
+        )
+    ]
+    log.info("LIST_DOCS | user=%s | count=%d", user["sub"], len(docs))
+    return {"docs": docs}
+
+
+@app.delete("/api/docs/{doc_id}")
+async def delete_doc(doc_id: str, user=Depends(require_jwt)):
+    """Remove a document from ChromaDB by id."""
+    coll.delete(ids=[doc_id])
+    log.info("DELETE | user=%s | id=%s", user["sub"], doc_id)
+    return {"ok": True, "id": doc_id}
+
+
+@app.put("/api/docs/{doc_id}")
+async def update_doc(doc_id: str, item: UpdateItem, user=Depends(require_jwt)):
+    """Re-embed and update an existing document."""
+    log.info("UPDATE | user=%s | id=%s", user["sub"], doc_id)
+    t0 = time.perf_counter()
+
+    original_text = item.text
+    meta = dict(item.meta) if item.meta else {}
+
+    source_is_he = is_hebrew_text(original_text)
+    source_lang = "he" if source_is_he else "en"
+
+    if source_is_he:
+        translated_en = await translate_text(original_text, "en")
+        embed_text = translated_en
+        unified = (
+            f"Original (he):\n{original_text}\n\n"
+            f"Translated (en):\n{translated_en}"
+        )
+        meta["translated_to"] = "en"
+    else:
+        embed_text = original_text
+        unified = original_text
+        meta["translated_to"] = "None"
+
+    meta["source_lang"] = source_lang
+
+    emb_arr = await asyncio.to_thread(
+        lambda: app.state.embed.encode([embed_text], normalize_embeddings=True)
+    )
+    emb = emb_arr.tolist()
+
+    coll.update(ids=[doc_id], documents=[unified], embeddings=emb, metadatas=[meta])
+
+    elapsed = time.perf_counter() - t0
+    log.info("UPDATE | OK | id=%s | elapsed=%.2fs", doc_id, elapsed)
+    return {"ok": True, "id": doc_id}
+
+
+# wrap sources so model knows these are data
 def _prompt(question: str, ctxs: List[str]) -> str:
     blocks = []
     for i, ctx in enumerate(ctxs, start=1):
