@@ -4,49 +4,26 @@ import "./Header.css";
 
 type Props = {
   lang: Lang;
-  onLangChange: (lang: Lang) => void;
-  onOpenSettings: () => void; // opens the AdminDrawer
+  onOpenSettings: () => void;
 };
 
-export function Header({ lang, onLangChange, onOpenSettings }: Props) {
+export function Header({ lang, onOpenSettings }: Props) {
   return (
     <header className="app-header">
-      {/* Left: app title */}
-      <div className="app-header__brand">
-        <h1 className="app-header__title">{t("ask_title", lang)}</h1>
-      </div>
+      <h1 className="app-header__title">{t("ask_title", lang)}</h1>
 
-      <div className="app-header__actions">
-        {/* LinkedIn placeholder — not yet implemented */}
-        <div className="app-header__user-slot" title={t("linkedin_placeholder", lang)}>
-          <div className="app-header__avatar app-header__avatar--placeholder" aria-hidden />
-          <span className="app-header__user-label">
-            {t("linkedin_placeholder", lang)}
-          </span>
-        </div>
-
-        {/* Language switcher: English / Hebrew */}
-        <label className="app-header__lang">
-          <span className="visually-hidden">{t("language", lang)}</span>
-          <select
-            value={lang}
-            onChange={(e) => onLangChange(e.target.value as Lang)}
-            aria-label={t("language", lang)}
-          >
-            <option value="en">English</option>
-            <option value="he">עברית</option>
-          </select>
-        </label>
-
-        {/* Opens the admin/settings drawer */}
-        <button
-          type="button"
-          className="app-header__settings-btn"
-          onClick={onOpenSettings}
-        >
-          {t("settings", lang)}
-        </button>
-      </div>
+      {/* Gear icon — opens the settings sidebar */}
+      <button
+        type="button"
+        className="app-header__gear-btn"
+        onClick={onOpenSettings}
+        aria-label={t("settings", lang)}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3" />
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+        </svg>
+      </button>
     </header>
   );
 }

@@ -66,25 +66,26 @@ export function ChatThread({
 
   return (
     <div className="chat-thread">
-      {/* Quick-question chips shown above the chat */}
-      <p className="chat-thread__presets-label">{t("preset_questions_title", lang)}</p>
-      <div className="chat-thread__presets" role="list">
-        {presets.map((q) => (
-          <button
-            key={q}
-            type="button"
-            className="chat-thread__chip"
-            disabled={isStreaming}
-            onClick={() => !isStreaming && onSend(q)}
-          >
-            {q}
-          </button>
-        ))}
-      </div>
-
-      {/* Message list */}
+      {/* Message list — or centered preset cards when the chat is empty */}
       <div className="chat-thread__messages">
-        {messages.map((msg, idx) => (
+        {messages.length === 0 ? (
+          <div className="chat-thread__presets-wrap">
+            <div className="chat-thread__presets" role="list">
+              {presets.map((q) => (
+                <button
+                  key={q}
+                  type="button"
+                  className="chat-thread__chip"
+                  disabled={isStreaming}
+                  onClick={() => !isStreaming && onSend(q)}
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          messages.map((msg, idx) => (
           <div
             key={idx}
             className={`chat-thread__msg chat-thread__msg--${msg.role}`}
@@ -161,7 +162,8 @@ export function ChatThread({
               )}
             </div>
           </div>
-        ))}
+          ))
+        )}
         {/* Invisible anchor — scrolled into view after each update */}
         <div ref={bottomRef} />
       </div>

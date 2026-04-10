@@ -8,7 +8,8 @@ type Props = {
   open: boolean;
   onClose: () => void;
   lang: Lang;
-  jwt: string | null;       // null = not logged in
+  onLangChange: (lang: Lang) => void;
+  jwt: string | null;
   onJwtChange: (token: string | null) => void;
 };
 
@@ -16,6 +17,7 @@ export function AdminDrawer({
   open,
   onClose,
   lang,
+  onLangChange,
   jwt,
   onJwtChange,
 }: Props) {
@@ -28,10 +30,9 @@ export function AdminDrawer({
   const [sourceUrl, setSourceUrl] = useState("");
   const [pasteText, setPasteText] = useState("");
 
-  const [notice, setNotice] = useState<string | null>(null); // success message
-  const [error, setError] = useState<string | null>(null);   // error message
+  const [notice, setNotice] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // Don't render anything when the drawer is closed
   if (!open) return null;
 
   // POST /api/auth/login → stores JWT on success
@@ -62,10 +63,7 @@ export function AdminDrawer({
     e.preventDefault();
     if (!jwt) return;
     const text = pasteText.trim();
-    if (!text) {
-      setError(t("no_text", lang));
-      return;
-    }
+    if (!text) { setError(t("no_text", lang)); return; }
     setError(null);
     setNotice(null);
     const title = docTitle.trim() || t("untitled", lang);
@@ -90,14 +88,16 @@ export function AdminDrawer({
         aria-label={t("close", lang)}
         onClick={onClose}
       />
+
       <aside
         className="admin-drawer"
         role="dialog"
         aria-modal="true"
         aria-labelledby="admin-drawer-title"
       >
+        {/* ── Header row ── */}
         <div className="admin-drawer__head">
-          <h2 id="admin-drawer-title">{t("admin_settings", lang)}</h2>
+          <h2 id="admin-drawer-title">{t("settings", lang)}</h2>
           <button
             type="button"
             className="admin-drawer__close"
@@ -108,78 +108,115 @@ export function AdminDrawer({
         </div>
 
         <div className="admin-drawer__body">
-          {notice && <p className="admin-drawer__notice">{notice}</p>}
-          {error && <p className="admin-drawer__error">{error}</p>}
 
-          {/* Show login form when not authenticated, ingest form when authenticated */}
-          {!jwt ? (
-            <>
-              <p className="admin-drawer__hint">{t("login_prompt", lang)}</p>
-              <form onSubmit={handleLogin} className="admin-drawer__form">
-                <label>
-                  {t("email", lang)}
-                  <input
-                    type="email"
-                    autoComplete="username"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </label>
-                <label>
-                  {t("password", lang)}
-                  <input
-                    type="password"
-                    autoComplete="current-password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </label>
-                <button type="submit">{t("login", lang)}</button>
-              </form>
-            </>
-          ) : (
-            <>
-              <p className="admin-drawer__hint">{t("authenticated", lang)}</p>
-              {/* Ingest form: paste any text → gets embedded and added to ChromaDB */}
-              <form onSubmit={handleIngest} className="admin-drawer__form">
-                <label>
-                  {t("doc_title", lang)}
-                  <input
-                    value={docTitle}
-                    onChange={(e) => setDocTitle(e.target.value)}
-                    placeholder={t("untitled", lang)}
-                  />
-                </label>
-                <label>
-                  {t("source_url", lang)}
-                  <input
-                    type="url"
-                    value={sourceUrl}
-                    onChange={(e) => setSourceUrl(e.target.value)}
-                    placeholder="https://"
-                  />
-                </label>
-                <label>
-                  {t("paste_text", lang)}
-                  <textarea
-                    rows={5}
-                    value={pasteText}
-                    onChange={(e) => setPasteText(e.target.value)}
-                  />
-                </label>
-                <button type="submit">{t("ingest", lang)}</button>
-              </form>
-              <button
-                type="button"
-                className="admin-drawer__logout"
-                onClick={handleLogout}
+          {/* ── Section 1: LinkedIn user ── */}
+          <div className="admin-drawer__section">
+            <p className="admin-drawer__section-title">LinkedIn</p>
+            <div className="admin-drawer__user-section">
+              <div className="admin-drawer__avatar" aria-hidden />
+              <span className="admin-drawer__user-label">
+                {t("linkedin_placeholder", lang)}
+              </span>
+            </div>
+          </div>
+
+          <hr className="admin-drawer__divider" />
+
+          {/* ── Section 2: Language ── */}
+          <div className="admin-drawer__section">
+            <p className="admin-drawer__section-title">{t("language", lang)}</p>
+            <label className="admin-drawer__lang-label">
+              <select
+                value={lang}
+                onChange={(e) => onLangChange(e.target.value as Lang)}
+                className="admin-drawer__lang-select"
               >
-                {t("logout", lang)}
-              </button>
-            </>
-          )}
+                <option value="en">English</option>
+                <option value="he">עברית</option>
+              </select>
+            </label>
+          </div>
+
+          <hr className="admin-drawer__divider" />
+
+          {/* ── Section 3: Admin settings ── */}
+          <div className="admin-drawer__section">
+            <p className="admin-drawer__section-title">{t("admin_settings", lang)}</p>
+
+            {notice && <p className="admin-drawer__notice">{notice}</p>}
+            {error   && <p className="admin-drawer__error">{error}</p>}
+
+            {/* Show login form when not authenticated, ingest form when authenticated */}
+            {!jwt ? (
+              <>
+                <p className="admin-drawer__hint">{t("login_prompt", lang)}</p>
+                <form onSubmit={handleLogin} className="admin-drawer__form">
+                  <label>
+                    {t("email", lang)}
+                    <input
+                      type="email"
+                      autoComplete="username"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </label>
+                  <label>
+                    {t("password", lang)}
+                    <input
+                      type="password"
+                      autoComplete="current-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                  </label>
+                  <button type="submit">{t("login", lang)}</button>
+                </form>
+              </>
+            ) : (
+              <>
+                <p className="admin-drawer__hint">{t("authenticated", lang)}</p>
+                {/* Ingest form: paste any text → gets embedded and added to ChromaDB */}
+                <form onSubmit={handleIngest} className="admin-drawer__form">
+                  <label>
+                    {t("doc_title", lang)}
+                    <input
+                      value={docTitle}
+                      onChange={(e) => setDocTitle(e.target.value)}
+                      placeholder={t("untitled", lang)}
+                    />
+                  </label>
+                  <label>
+                    {t("source_url", lang)}
+                    <input
+                      type="url"
+                      value={sourceUrl}
+                      onChange={(e) => setSourceUrl(e.target.value)}
+                      placeholder="https://"
+                    />
+                  </label>
+                  <label>
+                    {t("paste_text", lang)}
+                    <textarea
+                      rows={5}
+                      value={pasteText}
+                      onChange={(e) => setPasteText(e.target.value)}
+                    />
+                  </label>
+                  <button type="submit">{t("ingest", lang)}</button>
+                </form>
+                <button
+                  type="button"
+                  className="admin-drawer__logout"
+                  onClick={handleLogout}
+                >
+                  {t("logout", lang)}
+                </button>
+              </>
+            )}
+          </div>
+
         </div>
       </aside>
     </>

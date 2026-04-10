@@ -143,7 +143,6 @@ export default function App() {
     <div className="app">
       <Header
         lang={lang}
-        onLangChange={setLang}
         onOpenSettings={() => setSettingsOpen(true)}
       />
       <main className="app__main">
@@ -161,6 +160,7 @@ export default function App() {
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         lang={lang}
+        onLangChange={setLang}
         jwt={jwt}
         onJwtChange={onJwtChange}
       />

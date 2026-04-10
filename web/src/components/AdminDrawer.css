@@ -143,3 +143,67 @@
   font: inherit;
   cursor: pointer;
 }
+
+/* ── Divider ── */
+.admin-drawer__divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1rem 0;
+}
+
+/* ── Generic section wrapper ── */
+.admin-drawer__section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.admin-drawer__section-title {
+  margin: 0 0 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+/* ── LinkedIn user row — left-aligned ── */
+.admin-drawer__user-section {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.6rem;
+  padding: 0.25rem 0;
+}
+
+.admin-drawer__avatar {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+}
+
+.admin-drawer__user-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Language select ── */
+.admin-drawer__lang-label {
+  display: block;
+}
+
+.admin-drawer__lang-select {
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
