@@ -10,28 +10,24 @@ services:
     environment:
       PYTHONPATH: /app
     expose:
-      - "8000"          # visible to other containers (Caddy), not to the world
+      - "8000"          
     networks:
       - web
     volumes:
       - chroma_data:/app/data/chroma_store
+      - ./logs:/app/logs          # bind-mount: logs are written directly to the host
 
 
   portfoliochat-frontend:
     build:
       context: .
-      dockerfile: frontend/Dockerfile
-    env_file:
-      - .env
+      dockerfile: web/Dockerfile
+      args:
+        VITE_API_URL: ${PUBLIC_API_URL:-}
     container_name: portfoliochat-frontend
     restart: unless-stopped
-    environment:
-      PYTHONPATH: /app
-      STREAMLIT_SERVER_HEADLESS: "true"
-      STREAMLIT_SERVER_ENABLE_CORS: "false"
-      STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION: "false"
     expose:
-      - "3000"          # Caddy will reverse_proxy to this
+      - "3000"
     depends_on:
       - portfoliochat-api
     networks:

@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+itsdangerous
+chromadb
+sentence-transformers
+pydantic
+openai
+python-jose[cryptography]
+python-dotenv
+slowapi

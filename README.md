@@ -1,16 +1,17 @@
-# Portfolio Chatbot - Backend API
+# Portfolio Chatbot
 
-A production-ready **Retrieval-Augmented Generation (RAG)** chatbot API built with FastAPI, featuring bilingual support, streaming responses, and vector similarity search. This backend powers an intelligent portfolio assistant that answers questions about projects, experience, and technical skills using semantic search over embedded documents.
+A **Retrieval-Augmented Generation (RAG)** portfolio assistant: a **FastAPI** backend with NDJSON streaming and a **React + TypeScript** web UI (Vite), bilingual (English / Hebrew), with vector search over embedded documents.
 
 ## 🏗️ Architecture Overview
 
 **Tech Stack:**
-- **Framework:** FastAPI (async/await throughout)
+- **API:** FastAPI (async/await throughout)
+- **Web UI:** React 19, TypeScript, Vite ([`web/`](web/)); static assets served by nginx in Docker ([`web/Dockerfile`](web/Dockerfile))
 - **Vector Database:** ChromaDB with persistent storage
 - **Embeddings:** SentenceTransformers (`all-MiniLM-L6-v2`)
-- **LLM:** OpenAI GPT-4o-mini (streaming responses)
-- **Authentication:** JWT-based with python-jose
-- **Containerization:** Docker with docker-compose orchestration (see [`docker-compose.yml`](docker-compose.yml), [`backend/Dockerfile`](backend/Dockerfile))
+- **LLM:** OpenAI (streaming NDJSON responses)
+- **Authentication:** JWT-based with python-jose (admin ingest)
+- **Containerization:** Docker Compose ([`docker-compose.yml`](docker-compose.yml), [`backend/Dockerfile`](backend/Dockerfile))
 
 **Architecture Pattern:** Microservices-ready API with clear separation of concerns (routes, services, utilities), designed for horizontal scaling.
 
@@ -50,17 +51,24 @@ A production-ready **Retrieval-Augmented Generation (RAG)** chatbot API built wi
 ```
 backend/
 ├── api/
-│   └── [main.py](backend/api/main.py)              # FastAPI app, route registration, startup events
+│   └── [main.py](backend/api/main.py)              # FastAPI app, CORS, routes, startup
 ├── routes/
-│   ├── [auth.py](backend/routes/auth.py)              # JWT authentication & authorization
-│   └── [translate.py](backend/routes/translate.py)         # Bilingual translation endpoints
+│   ├── [auth.py](backend/routes/auth.py)
+│   └── [translate.py](backend/routes/translate.py)
 ├── services/
-│   └── [llm.py](backend/services/llm.py)               # LLM client configuration
+│   └── [llm.py](backend/services/llm.py)
 └── utils/
-    ├── [constants.py](backend/utils/constants.py)          # Configuration constants, prompts
-    ├── [responses.py](backend/utils/responses.py)          # Streaming response utilities
-    └── [settings.py](backend/utils/settings.py)           # ChromaDB client, OpenAI client setup
+    ├── [constants.py](backend/utils/constants.py)
+    ├── [responses.py](backend/utils/responses.py)
+    └── [settings.py](backend/utils/settings.py)
+
+web/
+├── src/                    # React app (chat UI, admin drawer, i18n, NDJSON streaming client)
+├── [Dockerfile](web/Dockerfile)   # build → nginx static
+└── [vite.config.ts](web/vite.config.ts)  # dev proxy: /api → http://127.0.0.1:8000
 ```
+
+Python dependencies for the API are listed in [`requirements-backend.txt`](requirements-backend.txt). Root [`requirements.txt`](requirements.txt) includes that file for local `pip install -r requirements.txt`.
 
 
 ### Code Quality
@@ -130,13 +138,36 @@ See [`docker-compose.yml`](docker-compose.yml) for configuration.
 
 The API runs on port 8000 (internal), designed to be reverse-proxied (e.g., Caddy, Nginx).
 
-**Environment Variables:**
+**Environment Variables (API):**
 - `OPENAI_API_KEY` - OpenAI API key
-- `JWT_SECRET` - Secret for JWT signing
+- `JWT_SECRET` - Secret for JWT signing (and session middleware)
 - `ADMIN_EMAIL` / `ADMIN_PASSWORD` - Admin credentials
-- `CHROMA_PERSIST_DIR` - Vector DB persistence path
+- `CHROMA_DIR` - Vector DB persistence path (optional: `CHROMA_DIR_FALLBACK` if the default path is not writable)
+- `CORS_ORIGINS` - Comma-separated allowed browser origins (defaults include `http://localhost:5173` for Vite)
 
-See [`requirements.txt`](requirements.txt) for Python dependencies.
+**Compose (web image build):**
+- `PUBLIC_API_URL` - Passed as `VITE_API_URL` at build time. Use the **browser-reachable** API origin (e.g. `https://api.example.com`). If empty, the SPA calls **relative** `/api/...` (your reverse proxy must forward `/api` to the API service).
+
+For production, set **`CORS_ORIGINS`** on the API to the exact origin of the static site (comma-separated).
+
+See [`requirements-backend.txt`](requirements-backend.txt) for API dependencies.
+
+## 💻 Local development (API + web)
+
+1. **API** (from repo root, with `.env` for `OPENAI_API_KEY`, `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`):
+
+   ```bash
+   pip install -r requirements.txt
+   uvicorn backend.api.main:app --reload --port 8000
+   ```
+
+2. **Web** — leave `VITE_API_URL` unset so the Vite dev server proxies `/api` to `http://127.0.0.1:8000` (see [`web/vite.config.ts`](web/vite.config.ts)). CORS defaults allow `http://localhost:5173`.
+
+   ```bash
+   cd web && npm install && npm run dev
+   ```
+
+   Open the URL Vite prints (usually `http://localhost:5173`). JWT for admin ingest is stored in **sessionStorage** under `portfolio_chat_jwt`.
 
 ## 🎯 Design Decisions
 
@@ -161,4 +192,4 @@ See [`requirements.txt`](requirements.txt) for Python dependencies.
 
 ---
 
-**Built with:** Python 3.10+, FastAPI, ChromaDB, SentenceTransformers, OpenAI API
+**Built with:** Python 3.11+, FastAPI, ChromaDB, SentenceTransformers, OpenAI API, React, TypeScript, Vite

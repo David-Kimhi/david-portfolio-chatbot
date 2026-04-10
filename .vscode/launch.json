@@ -33,21 +33,13 @@
 
         },
         {
-            "name": "Run Frontend",
-            "type": "debugpy",
+            "name": "Web (Vite dev)",
+            "type": "node",
             "request": "launch",
-            "module": "streamlit",
-            "args": [
-              "run",
-              "frontend/pages/app.py"],
-            "jinja": true,
-            "cwd": "${workspaceFolder}",
-            "env": {
-              "PYTHONPATH": "${workspaceFolder}"
-            },
-            "envFile": "${workspaceFolder}/.env",
+            "runtimeExecutable": "npm",
+            "runtimeArgs": ["run", "dev"],
+            "cwd": "${workspaceFolder}/web",
             "console": "integratedTerminal"
-
         }
     ]
 }

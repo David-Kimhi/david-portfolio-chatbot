@@ -1,4 +1,4 @@
-# backend/routes/trunslate.py
+# backend/routes/translate.py
 import json
 from enum import Enum
 
@@ -6,11 +6,11 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from backend.utils.settings import async_openai_client
+from backend.utils.settings import get_async_openai
 from backend.utils.constants import MODEL, HEB_RANGE
 from backend.utils.responses import stream_llm
 
-router = APIRouter(prefix="/api/trunslate", tags=["trunslate"])
+router = APIRouter(prefix="/api/translate", tags=["translate"])
 
 
 def is_hebrew_text(text: str) -> bool:
@@ -55,7 +55,7 @@ async def translate_text(text: str, target_lang: str) -> str:
 
     prompt = _build_prompt(text, target_lang)
 
-    resp = await async_openai_client.responses.create(
+    resp = await get_async_openai().responses.create(
         model=MODEL,
         input=[
             {"role": "system", "content": TRANSLATE_SYSTEM_PROMPT},

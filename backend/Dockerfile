@@ -12,14 +12,16 @@ ENV PYTHONPATH=/app
 ENV CHROMA_DIR=/app/data/chroma_store
 
 # Install deps
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements-backend.txt .
+RUN pip install --no-cache-dir -r requirements-backend.txt
 
 # Copy backend code (and anything else you need under /app)
 COPY backend ./backend
 
-# Ensure the persistent Chroma directory exists and is writable inside the container
-RUN mkdir -p /app/data/chroma_store && chmod -R 777 /app/data || true
+# Ensure the persistent Chroma and logs directories exist and are writable
+RUN mkdir -p /app/data/chroma_store /app/logs && chmod -R 777 /app/data /app/logs || true
+
+ENV LOG_DIR=/app/logs
 
 EXPOSE 8000
 

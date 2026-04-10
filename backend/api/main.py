@@ -1,5 +1,6 @@
-from fastapi import FastAPI, Depends
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, Depends, Request
+from fastapi.responses import StreamingResponse, JSONResponse
+from contextlib import asynccontextmanager
 from pydantic import BaseModel
 from typing import Any, List, Dict, Optional
 from sentence_transformers import SentenceTransformer
@@ -12,25 +13,59 @@ from backend.utils.responses import stream_llm
 from backend.routes.translate import router as translate_router
 
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 import os
+import time
 from backend.routes.translate import is_hebrew_text, translate_text
+from backend.utils.logger import log
 
 
-app = FastAPI(title="PortfolioChat API")
+def _cors_origins() -> List[str]:
+    raw = os.getenv(
+        "CORS_ORIGINS",
+        "http://localhost:5173,http://127.0.0.1:5173",
+    )
+    return [o.strip() for o in raw.split(",") if o.strip()]
 
 
-@app.on_event("startup")
-async def startup_event():
-    """Lazily create heavy resources on startup in a thread so the
-    event loop isn't blocked during import-time model initialization.
-    """
-    # create embedder in a thread
+# One limiter instance shared across the app; keys requests by client IP
+limiter = Limiter(key_func=get_remote_address)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: load the embedding model in a thread so the event loop isn't blocked
+    log.info("STARTUP | loading embedding model…")
     app.state.embed = await asyncio.to_thread(SentenceTransformer, "all-MiniLM-L6-v2")
+    log.info("STARTUP | embedding model ready")
+    yield
+    log.info("SHUTDOWN | server stopping")
+    
+app = FastAPI(title="PortfolioChat API", lifespan=lifespan)
 
-app.add_middleware(SessionMiddleware, secret_key=os.getenv("JWT_SECRET","change_me"))
+# Attach the limiter to app.state so slowapi can find it
+app.state.limiter = limiter
+
+# Return a clean JSON 429 instead of an HTML error page
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+
+
+app.add_middleware(SlowAPIMiddleware)
+app.add_middleware(SessionMiddleware, secret_key=os.getenv("JWT_SECRET", "change_me"))
 app.include_router(auth_router)
 app.include_router(translate_router)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins(),
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 JWT_SECRET = os.getenv("JWT_SECRET","change_me")
 JWT_ISS    = os.getenv("JWT_ISS","portfolio-chat")
@@ -56,6 +91,9 @@ async def health():
 
 @app.post("/api/ingest")
 async def ingest(items: List[IngestItem], user=Depends(require_jwt)):
+    log.info("INGEST | user=%s | docs=%d | ids=%s", user["sub"], len(items), [i.id for i in items])
+    t0 = time.perf_counter()
+
     texts_for_store = []
     metas = []
     ids   = []
@@ -96,7 +134,8 @@ async def ingest(items: List[IngestItem], user=Depends(require_jwt)):
     embs = embs_arr.tolist()
     coll.add(documents=texts_for_store, embeddings=embs, metadatas=metas, ids=ids)
 
-
+    elapsed = time.perf_counter() - t0
+    log.info("INGEST | OK | docs=%d | elapsed=%.2fs", len(items), elapsed)
     return {"ok": True, "count": len(items), "by": user["sub"]}
 
 
@@ -126,9 +165,17 @@ def _prompt_fallback(question: str) -> str:
     )
 
 @app.post("/api/ask/stream")
-async def ask_stream(req: AskReq):
+@limiter.limit("10/minute")  # max 10 questions per IP per minute
+async def ask_stream(request: Request, req: AskReq):
+    client_ip = request.client.host if request.client else "unknown"
+    q_preview = req.question[:80] + "…" if len(req.question) > 80 else req.question
+    log.info("ASK | ip=%s | q=%r", client_ip, q_preview)
+    t0 = time.perf_counter()
+
     # run embedding in thread to avoid blocking the event loop
-    qvec_arr = await asyncio.to_thread(lambda: app.state.embed.encode([req.question], normalize_embeddings=True))
+    qvec_arr = await asyncio.to_thread(
+        lambda: app.state.embed.encode([req.question], normalize_embeddings=True)
+    )
     qvec = qvec_arr.tolist()
 
     # retrieve top-k similar documents
@@ -151,10 +198,16 @@ async def ask_stream(req: AskReq):
     if not pairs:
         user_prompt = _prompt_fallback(req.question)
         ctx_sources = []
+        log.info("ASK | no_sources | ip=%s | retrieval=%.3fs", client_ip, time.perf_counter() - t0)
     else:
         ctx_sources = [p["meta"] for p in pairs]
         ctxs = [p["text"] for p in pairs]
         user_prompt = _prompt(req.question, ctxs)
+        source_titles = [m.get("title", m.get("id", "?")) for m in ctx_sources]
+        log.info(
+            "ASK | sources=%d | titles=%s | retrieval=%.3fs",
+            len(pairs), source_titles, time.perf_counter() - t0,
+        )
 
     return StreamingResponse(
         stream_llm(user_prompt, ctx_sources),

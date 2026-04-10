@@ -4,7 +4,7 @@ import time
 from typing import List, Optional, Any
 import asyncio
 
-from backend.utils.settings import async_openai_client  
+from backend.utils.settings import get_async_openai
 from backend.utils.constants import MODEL, SECURE_SYSTEM_PROMPT
 
 
@@ -32,7 +32,7 @@ async def stream_llm(
 
     try:
         # OpenAI responses API – streaming
-        resp = await async_openai_client.responses.create(
+        resp = await get_async_openai().responses.create(
             model=MODEL,
             input=[
                 {"role": "system", "content": system_instr},
@@ -54,7 +54,7 @@ async def stream_llm(
 
     except Exception:
         # fallback to chat.completions streaming
-        cmpl = await async_openai_client.chat.completions.create(
+        cmpl = await get_async_openai().chat.completions.create(
             model=MODEL,
             messages=[
                 {"role": "system", "content": system_instr},
