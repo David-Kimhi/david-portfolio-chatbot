@@ -1,14 +1,15 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, type MutableRefObject } from "react";
 import Markdown from "react-markdown";
 import type { Lang } from "../i18n/strings";
 import { t, PRESET_QUESTIONS } from "../i18n/strings";
 import { detectLanguage } from "../utils/detectLanguage";
+import { fetchRelevance } from "../api/client";
 import "./ChatThread.css";
 
 export type ChatMessage = {
   role: "user" | "assistant";
   content: string;
-  sources?: Record<string, unknown>[]; // RAG source documents attached to assistant messages
+  sources?: Record<string, unknown>[];
 };
 
 type Props = {
@@ -16,8 +17,9 @@ type Props = {
   messages: ChatMessage[];
   isStreaming: boolean;
   onSend: (text: string) => void;
-  onTranslate: (messageIndex: number) => void; // triggered by the translate button
-  translatingIndex: number | null;             // index of the message currently being translated
+  onTranslate: (messageIndex: number) => void;
+  translatingIndex: number | null;
+  contextEmbeddingRef: MutableRefObject<number[] | null>;
 };
 
 export function ChatThread({
@@ -27,16 +29,41 @@ export function ChatThread({
   onSend,
   onTranslate,
   translatingIndex,
+  contextEmbeddingRef,
 }: Props) {
-  // Used to auto-scroll to the bottom when new messages arrive
   const bottomRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState("");
+  const [relevanceScore, setRelevanceScore] = useState<number | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isStreaming]);
 
-  const presets = PRESET_QUESTIONS[lang]; // preset question chips for current language
+  // Debounced relevance scoring — fires 300ms after the user stops typing
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    const text = input.trim();
+    if (text.length < 3) {
+      setRelevanceScore(null);
+      return;
+    }
+    debounceRef.current = setTimeout(() => {
+      fetchRelevance(text, contextEmbeddingRef.current)
+        .then((r) => {
+          setRelevanceScore(r.score);
+          if (r.context_embedding) {
+            contextEmbeddingRef.current = r.context_embedding;
+          }
+        })
+        .catch(() => setRelevanceScore(null));
+    }, 300);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [input, contextEmbeddingRef]);
+
+  const presets = PRESET_QUESTIONS[lang];
   const lastIdx = messages.length - 1;
 
   const MAX_CHARS = 200;
@@ -56,11 +83,21 @@ export function ChatThread({
     ? "#f6ad55"
     : "#4f46e5";
 
+  const relevanceBarColor =
+    relevanceScore === null
+      ? "transparent"
+      : relevanceScore > 0.7
+        ? "#22c55e"
+        : relevanceScore > 0.3
+          ? "#eab308"
+          : "#ef4444";
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const q = input.trim();
     if (!q || isStreaming || isOverLimit) return;
     setInput("");
+    setRelevanceScore(null);
     onSend(q);
   };
 
@@ -212,6 +249,19 @@ export function ChatThread({
           {t("send", lang)}
         </button>
       </form>
+
+      {/* Relevance bar — thin animated strip below the composer */}
+      {relevanceScore !== null && (
+        <div className="chat-thread__relevance-track">
+          <div
+            className="chat-thread__relevance-fill"
+            style={{
+              width: `${Math.round(relevanceScore * 100)}%`,
+              backgroundColor: relevanceBarColor,
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }

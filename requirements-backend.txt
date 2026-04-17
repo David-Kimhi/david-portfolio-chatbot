@@ -8,3 +8,5 @@ openai
 python-jose[cryptography]
 python-dotenv
 slowapi
+asyncpg
+numpy

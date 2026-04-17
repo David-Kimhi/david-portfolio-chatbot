@@ -190,3 +190,17 @@
   line-height: 1;
   pointer-events: none;
 }
+
+/* ── Relevance bar ── */
+.chat-thread__relevance-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.chat-thread__relevance-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}

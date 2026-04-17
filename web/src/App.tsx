@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Lang } from "./i18n/strings";
 import { t } from "./i18n/strings";
 import {
@@ -14,12 +14,15 @@ import "./App.css";
 
 export default function App() {
   // Global state
-  const [lang, setLang] = useState<Lang>("en");          // active UI language
-  const [settingsOpen, setSettingsOpen] = useState(false); // admin drawer visibility
-  const [jwt, setJwt] = useState<string | null>(null);   // admin JWT token (null = not logged in)
-  const [messages, setMessages] = useState<ChatMessage[]>([]); // full chat history
-  const [isStreaming, setIsStreaming] = useState(false);  // true while GPT is responding
-  const [translatingIndex, setTranslatingIndex] = useState<number | null>(null); // which message is being translated
+  const [lang, setLang] = useState<Lang>("en");
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [jwt, setJwt] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [translatingIndex, setTranslatingIndex] = useState<number | null>(null);
+
+  // Conversation context — the blended embedding returned by the backend
+  const contextEmbeddingRef = useRef<number[] | null>(null);
 
   // Load saved JWT from sessionStorage on first render
   useEffect(() => {
@@ -51,16 +54,22 @@ export default function App() {
       let sources: Record<string, unknown>[] = [];
 
       try {
-        // Stream NDJSON from /api/ask/stream
-        // Each event: { type: "chunk", data: "..." } or { type: "sources", data: [...] }
         for await (const ev of streamNdjson(
           "/api/ask/stream",
-          { question: q, top_k: 4 },
+          {
+            question: q,
+            top_k: 4,
+            context_embedding: contextEmbeddingRef.current,
+          },
           jwt,
         )) {
           if (ev.type === "chunk") full += ev.data;
-          else if (ev.type === "sources") sources = ev.data;
-          else if (ev.type === "error") throw new Error(ev.data);
+          else if (ev.type === "sources") {
+            sources = ev.data;
+            if (ev.context_embedding) {
+              contextEmbeddingRef.current = ev.context_embedding;
+            }
+          } else if (ev.type === "error") throw new Error(ev.data);
 
           // Update the last (assistant) message in real time
           setMessages((m) => {
@@ -153,6 +162,7 @@ export default function App() {
           onSend={handleSend}
           onTranslate={handleTranslate}
           translatingIndex={translatingIndex}
+          contextEmbeddingRef={contextEmbeddingRef}
         />
       </main>
       {/* Slide-in admin panel for login + document ingestion */}

@@ -1,4 +1,19 @@
 services:
+  portfoliochat-db:
+    image: postgres:16-alpine
+    container_name: portfoliochat-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: portfoliochat
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-portfoliochat}
+      POSTGRES_DB: portfoliochat
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    expose:
+      - "5432"
+    networks:
+      - web
+
   portfoliochat-api:
     build:
       context: .
@@ -9,14 +24,16 @@ services:
     restart: unless-stopped
     environment:
       PYTHONPATH: /app
+      DATABASE_URL: postgresql://portfoliochat:${POSTGRES_PASSWORD:-portfoliochat}@portfoliochat-db:5432/portfoliochat
     expose:
       - "8000"          
+    depends_on:
+      - portfoliochat-db
     networks:
       - web
     volumes:
       - chroma_data:/app/data/chroma_store
-      - ./logs:/app/logs          # bind-mount: logs are written directly to the host
-
+      - ./logs:/app/logs
 
   portfoliochat-frontend:
     build:
@@ -39,3 +56,4 @@ networks:
 
 volumes:
   chroma_data:
+  pg_data:

@@ -16,6 +16,7 @@ async def stream_llm(
     temperature: float = 0.2,
     max_tokens: int = 600,
     throttle_sec: float = 0.1,
+    context_embedding: Optional[List[float]] = None,
 ):
     """
     Generic streaming helper.
@@ -74,8 +75,8 @@ async def stream_llm(
                     ensure_ascii=False,
                 ) + "\n"
 
-    # after text – send sources (empty list is fine)
-    yield json.dumps(
-        {"type": "sources", "data": ctx_sources},
-        ensure_ascii=False,
-    ) + "\n"
+    # after text – send sources and the updated context embedding
+    payload: dict[str, Any] = {"type": "sources", "data": ctx_sources}
+    if context_embedding is not None:
+        payload["context_embedding"] = context_embedding
+    yield json.dumps(payload, ensure_ascii=False) + "\n"

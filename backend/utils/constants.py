@@ -2,7 +2,8 @@ import re
 
 MODEL = 'gpt-5.1'
 MIN_SIM = -1.95       # cosine similarity threshold (tune 0.30–0.45)
-TOP_K = 4   # 
+TOP_K = 4
+HISTORY_WEIGHT = 0.3  # weight of previous-turn embedding when blending context
 
 HEB_RANGE = re.compile(r"[\u0590-\u05FF]")
 

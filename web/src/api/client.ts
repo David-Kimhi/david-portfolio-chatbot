@@ -33,8 +33,8 @@ export function setStoredJwt(token: string | null): void {
 
 // The three event types the backend streams back as NDJSON lines
 export type StreamEvent =
-  | { type: "chunk"; data: string }                      // partial text from GPT
-  | { type: "sources"; data: Record<string, unknown>[] } // RAG sources, sent once at the end
+  | { type: "chunk"; data: string }
+  | { type: "sources"; data: Record<string, unknown>[]; context_embedding?: number[] }
   | { type: "error"; data: string };
 
 // Thrown when the server responds with HTTP 429 (rate limit exceeded)
@@ -188,4 +188,39 @@ export async function ingestRequest(
     body: JSON.stringify(items),
   });
   if (!res.ok) throw new Error(`Ingest failed: ${res.status}`);
+}
+
+// POST /api/relevance → returns { score, context_embedding } without a GPT call
+export type RelevanceResult = {
+  score: number;
+  context_embedding: number[] | null;
+};
+
+export async function fetchRelevance(
+  text: string,
+  contextEmbedding?: number[] | null,
+): Promise<RelevanceResult> {
+  const res = await fetch(apiUrl("/api/relevance"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      text,
+      context_embedding: contextEmbedding ?? null,
+    }),
+  });
+  if (!res.ok) throw new Error(`Relevance failed: ${res.status}`);
+  return (await res.json()) as RelevanceResult;
+}
+
+// GET /api/stats → public analytics endpoint
+export type StatsResult = {
+  total_questions: number;
+  languages: Record<string, number>;
+  avg_relevance: number | null;
+};
+
+export async function fetchStats(): Promise<StatsResult> {
+  const res = await fetch(apiUrl("/api/stats"));
+  if (!res.ok) throw new Error(`Stats failed: ${res.status}`);
+  return (await res.json()) as StatsResult;
 }
