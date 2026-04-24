@@ -2,7 +2,7 @@
 
 A **Retrieval-Augmented Generation (RAG)** portfolio assistant: a **FastAPI** backend with NDJSON streaming and a **React + TypeScript** web UI (Vite), bilingual (English / Hebrew), with vector search over embedded documents.
 
-## 🏗️ Architecture Overview
+## Architecture Overview
 
 **Tech Stack:**
 - **API:** FastAPI (async/await throughout)
@@ -10,186 +10,239 @@ A **Retrieval-Augmented Generation (RAG)** portfolio assistant: a **FastAPI** ba
 - **Vector Database:** ChromaDB with persistent storage
 - **Embeddings:** SentenceTransformers (`all-MiniLM-L6-v2`)
 - **LLM:** OpenAI (streaming NDJSON responses)
-- **Authentication:** JWT-based with python-jose (admin ingest)
-- **Containerization:** Docker Compose ([`docker-compose.yml`](docker-compose.yml), [`backend/Dockerfile`](backend/Dockerfile))
+- **Authentication:** JWT-based with python-jose (admin endpoints)
+- **Analytics:** PostgreSQL via asyncpg (event logging, usage stats)
+- **Containerization:** Docker Compose ([`docker-compose.yml`](docker-compose.yml))
 
-**Architecture Pattern:** Microservices-ready API with clear separation of concerns (routes, services, utilities), designed for horizontal scaling.
+## Key Features
 
-## 🚀 Key Features
+### 1. RAG with Hypothetical Question Indexing
 
-### 1. **RAG (Retrieval-Augmented Generation)**
-- Semantic search using cosine similarity over embedded documents
-- Configurable top-k retrieval with similarity threshold filtering
-- Context-aware prompt engineering with source attribution (see [`backend/utils/constants.py`](backend/utils/constants.py))
-- Fallback handling when no relevant sources are found
+At ingest time, each document goes through two storage passes:
 
-### 2. **Async-First Design**
-- Full async/await implementation for non-blocking I/O
-- CPU-bound operations (model loading, embeddings) offloaded to thread pool via `asyncio.to_thread()`
-- Streaming responses using Server-Sent Events (SSE) with NDJSON format (see [`backend/utils/responses.py`](backend/utils/responses.py))
-- Efficient event loop management to prevent blocking
+1. **Document chunks** — the raw content, embedded and stored with `entry_type: "document"`. Used to build the LLM prompt.
+2. **Retrieval questions** — the LLM generates 10–15 questions that the document can answer (e.g. "What is David's experience with PySpark?"). These are embedded and stored with `entry_type: "question"`.
 
-### 3. **Bilingual Document Processing**
-- Automatic language detection (Hebrew/English)
-- Hebrew documents translated to English for embedding (better semantic search)
-- Original + translated text stored in vector DB for context preservation
-- Language metadata tracking for source attribution
+At query time, the user's question is compared against the **generated questions** (not raw document text). This dramatically improves precision: off-topic queries like "how do I install PySpark?" score low because they don't resemble biographical questions, even if they share keywords with the document.
 
-### 4. **Streaming API Endpoints**
-- Real-time token streaming for LLM responses
-- Graceful error handling with timeout management
-- Throttling support for rate-controlled streaming
+### 2. Conversation Context Blending
 
-### 5. **Security & Authentication**
-- JWT-based authentication with configurable expiration
-- Protected ingestion endpoints (admin-only)
-- Secure system prompts to prevent prompt injection
-- Environment-based secret management (see [`backend/utils/settings.py`](backend/utils/settings.py))
+Each submitted question produces a blended embedding:
 
-## 📁 Project Structure
+```
+blended = 0.7 × current_query + 0.3 × previous_turn_embedding
+```
+
+This anchors follow-up questions ("tell me more", "what about X?") to the previous topic without sending raw chat history to the backend. The blended vector is returned to the frontend after each turn and sent back with the next request.
+
+### 3. Real-Time Relevance Score
+
+As the user types, a debounced call to `/api/relevance` returns a 0–1 score (compared against generated questions). The frontend shows a colored bar: green = on-topic, yellow = borderline, red = off-topic. No LLM is involved — purely local embedding math.
+
+### 4. Bilingual Support (Hebrew / English)
+
+- Automatic language detection per document and per user query
+- Hebrew documents translated to English before embedding (better semantic search)
+- Original text preserved in storage; both versions stored in the vector DB
+- Frontend language switcher affects all UI strings (centralized in [`web/src/i18n/strings.ts`](web/src/i18n/strings.ts))
+
+### 5. Streaming Responses
+
+LLM responses stream as NDJSON over HTTP. The frontend reads chunks as they arrive and renders them in real time. The final event in each stream carries the source list and the updated context embedding for the next turn.
+
+### 6. Admin Document Management
+
+A slide-in drawer (gear icon) provides:
+- Login with JWT (session-scoped, stored in `sessionStorage`)
+- **Add document**: title, optional context header, source URL, and paste area
+- **Edit document**: inline form pre-filled from existing metadata; triggers full re-embedding and question regeneration
+- **Delete document**: removes all chunks and questions for that document
+- **Context header**: a short descriptor prepended to the document before embedding (e.g. "Professional CV of David Kimhi"). Does not affect stored content, only the embedding.
+
+### 7. Public Analytics
+
+`GET /api/stats` returns aggregated usage data (total questions, language breakdown, average relevance). Logged to PostgreSQL in the background on every ask and relevance call, with IP hashing for privacy.
+
+### 8. Security
+
+- JWT expiration (30 min), admin-only ingestion endpoints
+- System prompt hardening against prompt injection
+- Rate limiting on `/api/ask/stream` (10 req/min via slowapi)
+- Environment-based secret management
+
+## Project Structure
 
 ```
 backend/
 ├── api/
-│   └── [main.py](backend/api/main.py)              # FastAPI app, CORS, routes, startup
+│   └── main.py              # FastAPI app, all endpoints, startup/shutdown
 ├── routes/
-│   ├── [auth.py](backend/routes/auth.py)
-│   └── [translate.py](backend/routes/translate.py)
-├── services/
-│   └── [llm.py](backend/services/llm.py)
+│   ├── auth.py              # JWT login endpoint
+│   └── translate.py         # Hebrew ↔ English translation (streaming + util)
 └── utils/
-    ├── [constants.py](backend/utils/constants.py)
-    ├── [responses.py](backend/utils/responses.py)
-    └── [settings.py](backend/utils/settings.py)
+    ├── analytics.py         # PostgreSQL pool, event logging, stats query
+    ├── chunking.py          # Document chunking strategy
+    ├── constants.py         # Model name, thresholds, system prompts
+    ├── logger.py            # Centralized logging (file + console)
+    ├── responses.py         # stream_llm() and call_llm() helpers
+    └── settings.py          # ChromaDB init, OpenAI client, env vars
 
-web/
-├── src/                    # React app (chat UI, admin drawer, i18n, NDJSON streaming client)
-├── [Dockerfile](web/Dockerfile)   # build → nginx static
-└── [vite.config.ts](web/vite.config.ts)  # dev proxy: /api → http://127.0.0.1:8000
+web/src/
+├── api/
+│   └── client.ts            # All API calls: streaming, ingest, docs CRUD, relevance, stats
+├── components/
+│   ├── AdminDrawer.tsx/css  # Slide-in admin sidebar
+│   ├── ChatThread.tsx/css   # Chat UI, relevance bar, input with char counter
+│   └── Header.tsx/css       # Top bar with settings button
+├── i18n/
+│   └── strings.ts           # All UI strings (en/he) + preset questions
+└── App.tsx                  # Root: state, send handler, context embedding ref
 ```
 
-Python dependencies for the API are listed in [`requirements-backend.txt`](requirements-backend.txt). Root [`requirements.txt`](requirements.txt) includes that file for local `pip install -r requirements.txt`.
+Logs are written to `logs/` (excluded from git, mounted outside the container).
+ChromaDB data persists in `chroma_store/`.
 
-
-### Code Quality
-- Type hints throughout (Python 3.10+)
-- Separation of concerns (routes, business logic, utilities)
-- Reusable streaming utilities
-- Environment-based configuration
-
-## 🔌 API Endpoints
+## API Endpoints
 
 ### `POST /api/ask/stream`
-Streaming RAG query endpoint. Embeds user question, retrieves top-k similar documents, and streams LLM response with source citations.
-
-Implemented in [`backend/api/main.py`](backend/api/main.py).
+Main RAG endpoint. Embeds question → retrieves matching questions → fetches parent documents → streams LLM answer.
 
 **Request:**
 ```json
 {
-  "question": "What technologies did David use in his projects?",
-  "top_k": 4
+  "question": "What technologies did David use?",
+  "top_k": 4,
+  "context_embedding": [...]
 }
 ```
 
 **Response:** NDJSON stream
-```json
+```
 {"type":"chunk","data":"David used..."}
-{"type":"chunk","data":" technologies..."}
-{"type":"sources","data":[{"title":"Project X","url":"..."}]}
+{"type":"sources","data":[{"title":"CV","url":"..."}],"context_embedding":[...]}
 ```
 
-### `POST /api/ingest`
-Protected endpoint for ingesting documents into the vector store. Handles bilingual text processing, translation, and embedding.
+---
 
-Implemented in [`backend/api/main.py`](backend/api/main.py).
+### `POST /api/relevance`
+Returns a relevance score for the typed text (no LLM involved). Compares against generated question entries.
+
+**Request:** `{ "text": "...", "context_embedding": [...] }`  
+**Response:** `{ "score": 0.21, "context_embedding": [...] }`
+
+---
+
+### `POST /api/ingest` *(admin)*
+Ingest one or more documents. For each document: stores chunks with `entry_type: "document"`, then calls the LLM to generate retrieval questions stored with `entry_type: "question"`.
 
 **Headers:** `Authorization: Bearer <JWT>`
 
 **Request:**
 ```json
-[
-  {
-    "id": "project-1",
-    "text": "Project description...",
-    "meta": {"title": "Project Name", "url": "https://..."}
-  }
-]
+[{
+  "id": "cv",
+  "text": "Full CV text...",
+  "header": "Professional resume of David Kimhi, data engineer",
+  "meta": { "title": "CV", "url": "https://..." }
+}]
 ```
+
+---
+
+### `GET /api/docs` *(admin)*
+Lists all documents (excludes generated question entries).
+
+### `PUT /api/docs/{id}` *(admin)*
+Re-embeds and re-generates questions for a document.
+
+### `DELETE /api/docs/{id}` *(admin)*
+Removes all chunks and question entries for a document.
 
 ### `POST /api/translate/stream`
-Streaming translation endpoint (Hebrew ↔ English) using LLM.
-
-Implemented in [`backend/routes/translate.py`](backend/routes/translate.py).
+Streaming Hebrew ↔ English translation.
 
 ### `POST /api/auth/login`
-JWT token generation for authenticated endpoints.
+Returns a JWT for admin endpoints.
 
-Implemented in [`backend/routes/auth.py`](backend/routes/auth.py).
+### `GET /api/stats`
+Public aggregated usage analytics (total asks, language split, average relevance).
 
-## 🐳 Deployment
+### `GET /api/health`
+Returns `{"ok": true}`.
 
-**Docker Compose:**
-```bash
-docker-compose up -d
-```
+---
 
-See [`docker-compose.yml`](docker-compose.yml) for configuration.
+## Local Development
 
-The API runs on port 8000 (internal), designed to be reverse-proxied (e.g., Caddy, Nginx).
+**Prerequisites:** Python 3.11+, Node 18+, an OpenAI API key.
 
-**Environment Variables (API):**
-- `OPENAI_API_KEY` - OpenAI API key
-- `JWT_SECRET` - Secret for JWT signing (and session middleware)
-- `ADMIN_EMAIL` / `ADMIN_PASSWORD` - Admin credentials
-- `CHROMA_DIR` - Vector DB persistence path (optional: `CHROMA_DIR_FALLBACK` if the default path is not writable)
-- `CORS_ORIGINS` - Comma-separated allowed browser origins (defaults include `http://localhost:5173` for Vite)
-
-**Compose (web image build):**
-- `PUBLIC_API_URL` - Passed as `VITE_API_URL` at build time. Use the **browser-reachable** API origin (e.g. `https://api.example.com`). If empty, the SPA calls **relative** `/api/...` (your reverse proxy must forward `/api` to the API service).
-
-For production, set **`CORS_ORIGINS`** on the API to the exact origin of the static site (comma-separated).
-
-See [`requirements-backend.txt`](requirements-backend.txt) for API dependencies.
-
-## 💻 Local development (API + web)
-
-1. **API** (from repo root, with `.env` for `OPENAI_API_KEY`, `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`):
+1. **Backend** — from repo root, with a `.env` file:
 
    ```bash
    pip install -r requirements.txt
    uvicorn backend.api.main:app --reload --port 8000
    ```
 
-2. **Web** — leave `VITE_API_URL` unset so the Vite dev server proxies `/api` to `http://127.0.0.1:8000` (see [`web/vite.config.ts`](web/vite.config.ts)). CORS defaults allow `http://localhost:5173`.
+   `.env` required keys:
+   ```
+   OPENAI_API_KEY=...
+   JWT_SECRET=...
+   ADMIN_EMAIL=...
+   ADMIN_PASSWORD=...
+   ```
+
+2. **Frontend** — leave `VITE_API_URL` unset so Vite proxies `/api` to `http://127.0.0.1:8000`:
 
    ```bash
    cd web && npm install && npm run dev
    ```
 
-   Open the URL Vite prints (usually `http://localhost:5173`). JWT for admin ingest is stored in **sessionStorage** under `portfolio_chat_jwt`.
-
-## 🎯 Design Decisions
-
-1. **Why FastAPI?** Async support, automatic OpenAPI docs, type validation, high performance
-2. **Why ChromaDB?** Lightweight, embedded, persistent, Python-native, no external dependencies
-3. **Why SentenceTransformers?** Fast, local embeddings, no API costs
-4. **Why Streaming?** Better UX, lower perceived latency, memory-efficient for long responses
-5. **Why Thread Pool for Embeddings?** Prevents blocking event loop while maintaining async API surface
-
-
-## 🔒 Security Features
-
-- JWT token expiration (30 minutes)
-- System prompt hardening against injection attacks
-- Environment variable secrets (no hardcoded credentials)
-
-## 🧪 Testing & Monitoring
-
-- Health check endpoint
-- Structured error responses
-- Timeout handling for external API calls
+   Open `http://localhost:5173`. The admin JWT is stored in `sessionStorage` under `portfolio_chat_jwt`.
 
 ---
 
-**Built with:** Python 3.11+, FastAPI, ChromaDB, SentenceTransformers, OpenAI API, React, TypeScript, Vite
+## Docker Compose
+
+```bash
+docker-compose up -d
+```
+
+Services:
+- `portfoliochat-api` — FastAPI backend on port 8000 (internal)
+- `portfoliochat-web` — nginx static frontend on port 3000
+- `portfoliochat-db` — PostgreSQL for analytics
+
+**Environment variables (API):**
+
+| Variable | Description |
+|---|---|
+| `OPENAI_API_KEY` | OpenAI API key |
+| `JWT_SECRET` | Secret for JWT signing |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Admin credentials |
+| `CHROMA_DIR` | ChromaDB persistence path |
+| `CORS_ORIGINS` | Comma-separated allowed origins (default: `http://localhost:5173`) |
+| `DATABASE_URL` | PostgreSQL DSN (e.g. `postgresql://user:pass@db:5432/chatbot`) |
+
+**Frontend build variable:**
+
+| Variable | Description |
+|---|---|
+| `PUBLIC_API_URL` | Browser-reachable API origin, passed as `VITE_API_URL` at build time. Leave empty to use relative `/api/...` (requires reverse proxy to forward `/api` to the API service). |
+
+---
+
+## Design Decisions
+
+| Decision | Rationale |
+|---|---|
+| Hypothetical question indexing | Separates retrieval space from document space — query-to-question matching is far more precise than query-to-document for a personal portfolio |
+| Embedding blending (70/30) | Follow-up questions stay anchored to topic without sending raw chat history |
+| `all-MiniLM-L6-v2` | Fast, local, no API cost — good enough for question-to-question similarity |
+| ChromaDB | Lightweight, embedded, Python-native, no external service needed in dev |
+| PostgreSQL for analytics | Durable event log; decoupled from ChromaDB; async via asyncpg |
+| NDJSON streaming | Lower perceived latency; memory-efficient for long responses |
+| `asyncio.to_thread()` for embeddings | Keeps the event loop free during CPU-bound encoding |
+
+---
+
+**Built with:** Python 3.11+, FastAPI, ChromaDB, SentenceTransformers, OpenAI API, PostgreSQL, asyncpg, React 19, TypeScript, Vite, nginx

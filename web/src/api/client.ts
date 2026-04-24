@@ -162,6 +162,7 @@ export async function updateDoc(
   text: string,
   meta: Record<string, string>,
   token: string,
+  header?: string,
 ): Promise<void> {
   const res = await fetch(apiUrl(`/api/docs/${encodeURIComponent(id)}`), {
     method: "PUT",
@@ -169,14 +170,14 @@ export async function updateDoc(
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ text, meta }),
+    body: JSON.stringify({ text, meta, header: header ?? "" }),
   });
   if (!res.ok) throw new Error(`Update failed: ${res.status}`);
 }
 
 // POST /api/ingest → sends documents to be embedded and stored in ChromaDB (requires JWT)
 export async function ingestRequest(
-  items: { id: string; text: string; meta: Record<string, string> }[],
+  items: { id: string; text: string; header?: string; meta: Record<string, string> }[],
   token: string,
 ): Promise<void> {
   const res = await fetch(apiUrl("/api/ingest"), {

@@ -183,6 +183,14 @@ const STRINGS: Record<string, Record<Lang, string>> = {
     en: "Update failed.",
     he: "העדכון נכשל.",
   },
+  context_header: {
+    en: "Context header",
+    he: "כותרת הקשר",
+  },
+  context_header_placeholder: {
+    en: "e.g. Professional portfolio of David Kimhi…",
+    he: 'לדוגמה: תיק עבודות מקצועי של דוד קמחי…',
+  },
 };
 
 // Looks up a string by key + language. Falls back to the key itself if missing.

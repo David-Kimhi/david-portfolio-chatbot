@@ -8,6 +8,39 @@ from backend.utils.settings import get_async_openai
 from backend.utils.constants import MODEL, SECURE_SYSTEM_PROMPT
 
 
+async def call_llm(system_prompt: str, user_prompt: str, max_tokens: int = 600) -> str:
+    """Non-streaming LLM call — returns the full response text.
+
+    Used for ingest-time preprocessing (e.g. question generation) where we
+    need the complete output before continuing, not a stream of chunks.
+    """
+    client = get_async_openai()
+    try:
+        resp = await client.responses.create(
+            model=MODEL,
+            input=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            max_output_tokens=max_tokens,
+            timeout=30,
+        )
+        return resp.output_text or ""
+    except Exception:
+        # fallback to chat.completions
+        cmpl = await client.chat.completions.create(
+            model=MODEL,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.3,
+            max_completion_tokens=max_tokens,
+            timeout=30,
+        )
+        return cmpl.choices[0].message.content or ""
+
+
 async def stream_llm(
     user_prompt: str,
     ctx_sources: Optional[List[Any]] = None,

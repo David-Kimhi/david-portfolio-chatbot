@@ -35,6 +35,7 @@ export function AdminDrawer({
 
   // Ingest form
   const [docTitle, setDocTitle] = useState("");
+  const [docHeader, setDocHeader] = useState("");
   const [sourceUrl, setSourceUrl] = useState("");
   const [pasteText, setPasteText] = useState("");
 
@@ -49,6 +50,7 @@ export function AdminDrawer({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [editUrl, setEditUrl] = useState("");
+  const [editHeader, setEditHeader] = useState("");
 
   // Fetch all docs whenever the drawer opens and the admin is logged in
   const fetchDocs = useCallback(async () => {
@@ -106,12 +108,13 @@ export function AdminDrawer({
     const title = docTitle.trim() || t("untitled", lang);
     try {
       await ingestRequest(
-        [{ id: title, text, meta: { title, url: sourceUrl.trim() } }],
+        [{ id: title, text, header: docHeader.trim(), meta: { title, url: sourceUrl.trim() } }],
         jwt,
       );
       setNotice(t("ingested", lang));
       setPasteText("");
       setDocTitle("");
+      setDocHeader("");
       setSourceUrl("");
       await fetchDocs(); // refresh the list after adding
     } catch {
@@ -141,6 +144,7 @@ export function AdminDrawer({
     setExpandedId(doc.id);
     setEditText(doc.document);
     setEditUrl(doc.meta.url ?? "");
+    setEditHeader(doc.meta.header ?? "");
   };
 
   const handleUpdate = async (e: React.FormEvent, id: string) => {
@@ -150,7 +154,7 @@ export function AdminDrawer({
     if (!text) return;
     setError(null);
     try {
-      await updateDoc(id, text, { title: id, url: editUrl.trim() }, jwt);
+      await updateDoc(id, text, { title: id, url: editUrl.trim() }, jwt, editHeader.trim());
       setNotice(t("updated", lang));
       setExpandedId(null);
       await fetchDocs(); // refresh list with updated content
@@ -266,6 +270,14 @@ export function AdminDrawer({
                     />
                   </label>
                   <label>
+                    {t("context_header", lang)}
+                    <input
+                      value={docHeader}
+                      onChange={(e) => setDocHeader(e.target.value)}
+                      placeholder={t("context_header_placeholder", lang)}
+                    />
+                  </label>
+                  <label>
                     {t("source_url", lang)}
                     <input
                       type="url"
@@ -328,6 +340,14 @@ export function AdminDrawer({
                             className="admin-drawer__form admin-drawer__doc-edit"
                             onSubmit={(e) => handleUpdate(e, doc.id)}
                           >
+                            <label>
+                              {t("context_header", lang)}
+                              <input
+                                value={editHeader}
+                                onChange={(e) => setEditHeader(e.target.value)}
+                                placeholder={t("context_header_placeholder", lang)}
+                              />
+                            </label>
                             <label>
                               {t("source_url", lang)}
                               <input

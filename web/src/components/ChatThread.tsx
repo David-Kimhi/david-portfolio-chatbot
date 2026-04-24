@@ -83,12 +83,13 @@ export function ChatThread({
     ? "#f6ad55"
     : "#4f46e5";
 
+  // Thresholds calibrated to actual L2-based similarity scores (~0.05–0.30 range)
   const relevanceBarColor =
     relevanceScore === null
       ? "transparent"
-      : relevanceScore > 0.7
+      : relevanceScore > 0.18
         ? "#22c55e"
-        : relevanceScore > 0.3
+        : relevanceScore > 0.10
           ? "#eab308"
           : "#ef4444";
 
@@ -256,7 +257,7 @@ export function ChatThread({
           <div
             className="chat-thread__relevance-fill"
             style={{
-              width: `${Math.round(relevanceScore * 100)}%`,
+              width: `${Math.min(100, Math.round((relevanceScore / 0.3) * 100))}%`,
               backgroundColor: relevanceBarColor,
             }}
           />
