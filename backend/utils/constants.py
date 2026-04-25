@@ -1,7 +1,7 @@
 import re
 
 MODEL = 'gpt-5.1'
-MIN_SIM = 0.12        # minimum cosine similarity to accept a matched question
+MIN_SIM = 0.35        # minimum cosine similarity to accept a matched question
 MAX_PER_DOC = 3       # max questions accepted from the same document per query
 QUESTION_POOL = 50    # how many nearest questions to fetch from ChromaDB before filtering
 HISTORY_WEIGHT = 0.3  # weight of previous-turn embedding when blending context
