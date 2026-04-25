@@ -1,8 +1,9 @@
 import re
 
 MODEL = 'gpt-5.1'
-MIN_SIM = 0.0         # cosine similarity threshold — keep any non-negative match
-TOP_K = 20            
+MIN_SIM = 0.12        # minimum cosine similarity to accept a matched question
+MAX_PER_DOC = 3       # max questions accepted from the same document per query
+QUESTION_POOL = 50    # how many nearest questions to fetch from ChromaDB before filtering
 HISTORY_WEIGHT = 0.3  # weight of previous-turn embedding when blending context
 
 HEB_RANGE = re.compile(r"[\u0590-\u05FF]")

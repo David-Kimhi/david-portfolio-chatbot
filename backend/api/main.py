@@ -6,7 +6,7 @@ from typing import Any, List, Dict, Optional
 from sentence_transformers import SentenceTransformer
 import asyncio
 from backend.utils.settings import coll
-from backend.utils.constants import TOP_K, MIN_SIM, HISTORY_WEIGHT, QUESTION_SYSTEM_PROMPT
+from backend.utils.constants import MIN_SIM, MAX_PER_DOC, QUESTION_POOL, HISTORY_WEIGHT, QUESTION_SYSTEM_PROMPT
 import numpy as np
 from backend.routes.auth import require_jwt, router as auth_router
 from backend.utils.responses import stream_llm, call_llm
@@ -102,7 +102,6 @@ JWT_ISS    = os.getenv("JWT_ISS", "portfolio-chat")
 
 class AskReq(BaseModel):
     question: str
-    top_k: int = 4
     context_embedding: Optional[List[float]] = None  # from previous turn
 
 class RelevanceReq(BaseModel):
@@ -451,7 +450,7 @@ async def relevance(request: Request, req: RelevanceReq, bg: BackgroundTasks):
     # Find nearest neighbours — compare against question entries only for accurate relevance
     res = coll.query(
         query_embeddings=[blended],
-        n_results=TOP_K,
+        n_results=QUESTION_POOL,
         where={"entry_type": "question"},
         include=["distances"],
     )
@@ -501,24 +500,30 @@ async def ask_stream(request: Request, req: AskReq, bg: BackgroundTasks):
     # 2. Blend with conversation context (anchors follow-ups)
     blended = _blend_embedding(qvec, req.context_embedding)
 
-    # 3. Retrieve top-k nearest questions from ChromaDB
+    # 3. Fetch a large pool of nearest questions from ChromaDB
     res = coll.query(
         query_embeddings=[blended],
-        n_results=req.top_k or TOP_K,
+        n_results=QUESTION_POOL,
         where={"entry_type": "question"},
         include=["documents", "metadatas", "distances"],
     )
 
-    q_docs     = res.get("documents", [[]])[0]
-    q_metas    = res.get("metadatas", [[]])[0]
-    q_dists    = res.get("distances", [[]])[0]
+    q_docs  = res.get("documents", [[]])[0]
+    q_metas = res.get("metadatas", [[]])[0]
+    q_dists = res.get("distances", [[]])[0]
 
-    # 4. Filter by similarity threshold and collect matched parent_ids
+    # 4. Filter: accept questions above MIN_SIM, cap at MAX_PER_DOC per document
     matched: list[dict] = []
+    doc_counts: dict[str, int] = {}
     for q_text, m, dist in zip(q_docs, q_metas, q_dists):
         sim = max(0.0, min(1.0, 1.0 - float(dist) / 2.0))
-        if sim >= MIN_SIM:
-            matched.append({"question": q_text, "meta": m, "sim": sim})
+        if sim < MIN_SIM:
+            continue
+        pid = m.get("parent_id", "")
+        if doc_counts.get(pid, 0) >= MAX_PER_DOC:
+            continue
+        doc_counts[pid] = doc_counts.get(pid, 0) + 1
+        matched.append({"question": q_text, "meta": m, "sim": sim})
 
     # 5. Fetch the actual document text for matched parent_ids
     pairs = []
@@ -562,10 +567,12 @@ async def ask_stream(request: Request, req: AskReq, bg: BackgroundTasks):
             for p in pairs
         ]
 
-        # Log matched questions with similarity scores
-        for i, m in enumerate(matched):
-            log.info("ASK | match %d | parent=%s | sim=%.3f | q=%r",
-                     i, m["meta"].get("parent_id", "?"), m["sim"], m["question"][:80])
+        # Log a compact summary: one line per matched source document
+        for p in pairs:
+            log.info("ASK | source=%s | sim=%.3f | questions_matched=%d",
+                     p["pid"],
+                     p["sim"],
+                     sum(1 for m in matched if m["meta"].get("parent_id") == p["pid"]))
         log.info(
             "ASK | matched_questions=%d | sources=%d | retrieval=%.3fs",
             len(matched), len(pairs), time.perf_counter() - t0,

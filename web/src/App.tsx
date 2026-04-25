@@ -58,7 +58,6 @@ export default function App() {
           "/api/ask/stream",
           {
             question: q,
-            top_k: 4,
             context_embedding: contextEmbeddingRef.current,
           },
           jwt,
